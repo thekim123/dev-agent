@@ -1,12 +1,31 @@
-from fastapi import FastAPI
+from functools import lru_cache
+
+from fastapi import FastAPI, Depends
 
 from dto import AgentResponse, AgentRequest, Source
+from embedder import Embedder
+from loader import load_vector_store
+from service.agent_service import Retriever, AgentService
 
 app = FastAPI()
+
+
+@lru_cache
+def get_retriever(self) -> Retriever:
+    embedder = Embedder()
+    chunks = load_vector_store()
+    return Retriever(embedder=embedder, chunks=chunks)
+
+
+@lru_cache
+def get_agent_service() -> AgentService:
+    return AgentService(retriever=get_retriever())
+
 
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
+
 
 @app.get("/hello/{name}")
 async def say_hello(name: str):
@@ -14,7 +33,10 @@ async def say_hello(name: str):
 
 
 @app.post("/agent", response_model=AgentResponse, summary="질문 한 개만 받아서 에이전트 처리")
-async def agent(req: AgentRequest):
+async def agent(
+        req: AgentRequest,
+        service: AgentService = Depends(get_agent_service),
+):
     question = req.question.strip()
 
     if len(question) <= 12:
@@ -40,9 +62,4 @@ async def agent(req: AgentRequest):
             answer="해당 구현은 `app/service/user_service.py` 84번째 줄 부근을 확인하면 됩니다."
         )
 
-    return AgentResponse(
-        used_tool="retrieve_docs",
-        reason="일반 설명형 질문으로 판단되어 문서 기반 검색 사용",
-        sources=[Source(path="zxcvasdf", line=42, score=0.92)],
-        answer="요약: 토큰은 만료 전 리프레시 토큰으로 갱신됩니다."
-    )
+    return service.run_retrieve(question)
