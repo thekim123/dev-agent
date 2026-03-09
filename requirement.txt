@@ -1,4 +1,11 @@
 openai
-dotenv
 boto3
 numpy
+fastapi
+uvicorn[standard]
+pydantic
+python-dotenv
+boto3
+numpy
+pytest
+httpx
