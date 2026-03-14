@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field
-from typing import List, Literal
+from typing import List, Literal, Tuple
+
+from app.ingestion.chunker import DocumentChunk
 
 
 class AgentRequest(BaseModel):
@@ -18,3 +20,8 @@ class AgentResponse(BaseModel):
     reason: str
     sources: List[Source]
     answer: str
+
+
+class BedrockResponse(BaseModel):
+    answer: str
+    chunks: List[Tuple[float, DocumentChunk]]
