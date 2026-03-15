@@ -3,25 +3,33 @@ from functools import lru_cache
 from fastapi import FastAPI, Depends, HTTPException
 
 from app.agent.dto import AgentResponse, AgentRequest
-from app.agent.service import Retriever, AgentService
-from app.ingestion.embedder import Embedder
-from app.ingestion.loader import load_vector_store
+from app.agent.service import AgentService
+from app.llm.embedder import Embedder
+from app.llm.factory import create_embedder
+from app.repository.factory import create_chunk_repository
 
 app = FastAPI()
 
 
 @lru_cache
-def get_retriever() -> Retriever:
-    embedder = Embedder()
-    chunks = load_vector_store()
-    if not chunks:
+def get_embedder() -> Embedder:
+    return create_embedder()
+
+
+@lru_cache
+def get_chunk_repository():
+    repository = create_chunk_repository()
+    if repository.count() == 0:
         raise Exception('there is no vector store.')
-    return Retriever(embedder=embedder, chunks=chunks)
+    return repository
 
 
 @lru_cache
 def get_agent_service() -> AgentService:
-    return AgentService(retriever=get_retriever())
+    return AgentService(
+        repository=get_chunk_repository(),
+        embedder=get_embedder()
+    )
 
 
 @app.get("/")

@@ -19,7 +19,7 @@ class Embedder:
         )
         self.query_model_id = os.getenv("BEDROCK_QUERY_MODEL_ID")
 
-    def embed(self, text):
+    def embed(self, text) -> list[float]:
         body = json.dumps({"inputText": text})
         response = self.client.invoke_model(
             modelId=self.embed_model_id,

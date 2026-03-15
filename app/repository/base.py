@@ -18,6 +18,7 @@ class ChunkRepository(ABC):
     def count(self) -> int:
         ...
 
+    @abstractmethod
     def search_similar(
             self,
             query_embedding: Sequence[float],
@@ -25,6 +26,7 @@ class ChunkRepository(ABC):
     ) -> list[tuple[float, DocumentChunk]]:
         ...
 
+    @abstractmethod
     def search_by_term(
             self,
             terms: list[str],

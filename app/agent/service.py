@@ -2,8 +2,6 @@ import re
 from typing import Literal
 
 from app.agent.dto import AgentResponse, Source, BedrockResponse
-from app.ingestion.loader import bedrock, search_chunks
-
 
 REPO_KEYWORDS = ("어디", "파일", "함수", "클래스")
 DOC_KEYWORDS = ("설명", "요약", "의미", "왜", "동작", "흐름", "정리")
@@ -44,12 +42,6 @@ thanks = '필요한 질문을 이어서 주시면 됩니다.'
 SNIPPET_LEN = 220
 
 
-class Retriever:
-    def __init__(self, embedder, chunks):
-        self.embedder = embedder
-        self.chunks = chunks
-
-
 def _normalize_question(question: str) -> str:
     return re.sub(r"\s+", " ", question).strip()
 
@@ -77,9 +69,9 @@ def _build_answer(query_results):
     if not query_results:
         return "관련 위치를 찾지 못했습니다. 검색어를 더 구체적으로 바꿔보세요."
     if len(query_results) == 1:
-        return f"가장 관련 높은 구현은 `{query_results[0]['path']}`에 있습니다."
+        return f"가장 관련 높은 구현은 `{query_results[0].path}`에 있습니다."
 
-    top_paths = [f"{i + 1}. {item['path']}" for i, item in enumerate(query_results[:3])]
+    top_paths = [f"{i + 1}. {item.path}" for i, item in enumerate(query_results[:3])]
     return '관련 구현 후보를 찾았습니다. 아래 파일들을 먼저 확인해보세요. \n' + '\n'.join(top_paths)
 
 
@@ -89,8 +81,9 @@ def _extract_terms(question: str) -> list[str]:
 
 
 class AgentService:
-    def __init__(self, retriever):
-        self.retriever = retriever
+    def __init__(self, embedder, repository):
+        self.embedder = embedder
+        self.repository = repository
 
     def answer(self, question: str) -> AgentResponse:
         used_tool, routed_question, reason, direct_answer = self._route(question)
@@ -103,7 +96,8 @@ class AgentService:
             )
 
         if used_tool == "search_repo":
-            query_results = self.search_repo(routed_question)
+            terms = _extract_terms(routed_question)
+            query_results = self.repository.search_by_term(terms)
             return AgentResponse(
                 used_tool=used_tool,
                 reason=reason,
@@ -161,9 +155,8 @@ class AgentService:
     # retrieve_docs(question)를 만들고,
     # 반환값에 chunk_id/source_path/start/end/score를 붙여줘.
     def retrieve_docs(self, question):
-        vectors = self.retriever.chunks
-        query_embed = bedrock.embed(question)
-        search_list = search_chunks(query_embed, vectors)
+        query_embed = self.embedder.embed(question)
+        search_list = self.repository.search_similar(query_embed)
 
         if search_list[0][0] < 0.4:
             print()
@@ -174,34 +167,7 @@ class AgentService:
             doc_text = ''
             for doc in search_list:
                 doc_text += doc[1].text
-            query_result = bedrock.query_embed(doc_text, question)
+            query_result = self.embedder.query_embed(doc_text, question)
             print(query_result[0]["text"])
             response = BedrockResponse(answer=query_result[0]["text"], chunks=search_list)
             return response
-
-    def search_repo(self, question):
-        terms = _extract_terms(question)
-        results = []
-        chunks = self.retriever.chunks
-
-        for chunk in chunks:
-            score = 0
-            path = chunk.source_path.lower()
-            text = chunk.text.lower()
-
-            for term in terms:
-                if term in path:
-                    score += 10
-                if term in text:
-                    score += 5
-
-            if score > 0:
-                results.append({
-                    "path": chunk.source_path,
-                    "score": score,
-                    "line": chunk.start,
-                    "snippet": chunk.text[: 120]
-                })
-
-        results.sort(key=lambda x: x["score"], reverse=True)
-        return results[:5]
