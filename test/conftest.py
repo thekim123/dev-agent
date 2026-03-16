@@ -6,6 +6,7 @@ from starlette.testclient import TestClient
 from app.agent.service import AgentService
 from app.main import app, get_agent_service
 from app.repository.json_chunk_repository import JsonChunkRepository
+from app.repository.opensearch_chunk_repository import OpenSearchChunkRepository
 
 
 @pytest.fixture(scope="session")
@@ -49,6 +50,11 @@ def vector_store_path(tmp_path_factory, sample_rows):
 @pytest.fixture(scope="session")
 def json_repo(vector_store_path):
     return JsonChunkRepository(path=str(vector_store_path))
+
+
+@pytest.fixture(scope="session")
+def opensearch_repo(vector_store_path):
+    return OpenSearchChunkRepository(host="localhost:9200", index_name="code_chunks")
 
 
 class FakeEmbedder:
