@@ -13,6 +13,16 @@ class RepoSearchResult:
     snippet: str
 
 
+@dataclass(frozen=True)
+class ChunkSearchHit:
+    chunk_id: str
+    source_path: str
+    text: str
+    start_offset: int
+    end_offset: int
+    score: float
+
+
 class ChunkRepository(ABC):
     @abstractmethod
     def count(self) -> int:
@@ -23,7 +33,7 @@ class ChunkRepository(ABC):
             self,
             query_embedding: Sequence[float],
             top_k: int = 3,
-    ) -> list[tuple[float, DocumentChunk]]:
+    ) -> list[ChunkSearchHit]:
         ...
 
     @abstractmethod
@@ -31,5 +41,5 @@ class ChunkRepository(ABC):
             self,
             terms: list[str],
             top_k: int = 5,
-    ) -> list[RepoSearchResult]:
+    ) -> list[ChunkSearchHit]:
         ...

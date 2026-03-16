@@ -1,0 +1,196 @@
+import json
+
+import httpx
+
+HOST = "http://localhost:9200"
+INDEX = "code_chunks_demo"
+
+
+def build_index_body(dimension: int) -> dict:
+    return {
+        "settings": {
+            "index": {
+                "knn": True,
+            }
+        },
+        "mappings": {
+            "properties": {
+                "chunk_id": {"type": "keyword"},
+                "source_path": {"type": "text"},
+                "text": {"type": "text"},
+                "start": {"type": "integer"},
+                "end": {"type": "integer"},
+                "embedding": {
+                    "type": "knn_vector",
+                    "dimension": dimension,
+                },
+            }
+        },
+    }
+
+
+def build_bulk_body(index_name: str, docs: list[dict]) -> str:
+    lines = []
+    for doc in docs:
+        lines.append(json.dumps({"index": {
+            "_index": index_name,
+            "_id": doc["chunk_id"],
+        }}))
+        lines.append(json.dumps(doc))
+    return "\n".join(lines) + "\n"
+
+
+def build_knn_query(query_vector: list[float], top_k: int) -> dict:
+    return {
+        "size": top_k,
+        "query": {
+            "knn": {
+                "embedding": {
+                    "vector": query_vector,
+                    "k": top_k,
+                }
+            }
+        },
+    }
+
+
+def assert_bulk_succeeded(response: httpx.Response) -> dict:
+    response.raise_for_status()
+    payload = response.json()
+
+    if payload["errors"]:
+        failed_items = []
+        for item in payload["items"]:
+            index_result = item["index"]
+            if "error" in index_result:
+                failed_items.append({
+                    "id": index_result.get("_id"),
+                    "error": index_result["error"],
+                })
+        raise RuntimeError(f"bulk indexing failed: {failed_items}")
+    return payload
+
+
+def build_term_query(terms: list[str], top_k: int) -> dict:
+    should_clauses = []
+    for term in terms:
+        should_clauses.append({
+            "match": {
+                "source_path": {
+                    "query": term,
+                    "boost": 3,
+                }
+            }
+        })
+
+        should_clauses.append({
+            "match": {
+                "text": {
+                    "query": term,
+                    "boost": 1,
+                }
+            }
+        })
+
+    return {
+        "size": top_k,
+        "query": {
+            "bool": {
+                "should": should_clauses,
+                "minimum_should_match": 1
+            }
+        }
+    }
+
+
+def parse_knn_hits(payload: dict) -> list[dict]:
+    results = []
+    hits = payload["hits"]["hits"]
+    for hit in hits:
+        source = hit["_source"]
+        results.append({
+            "score": hit["_score"],
+            "chunk_id": source["chunk_id"],
+            "source_path": source["source_path"],
+            "text": source["text"],
+            "start": source["start"],
+            "end": source["end"],
+            "embedding": source["embedding"],
+        })
+    return results
+
+
+def parse_term_hits(payload: dict) -> list[dict]:
+    results = []
+    hits = payload["hits"]["hits"]
+    for hit in hits:
+        source = hit["_source"]
+        results.append({
+            "score": hit["_score"],
+            "path": source["source_path"],
+            "line": source["start"],
+            "snippet": source["text"][:120],
+        })
+    return results
+
+
+docs = [
+    {
+        "chunk_id": "a",
+        "source_path": "app/auth/login.py",
+        "text": "login flow creates access token",
+        "start": 1,
+        "end": 10,
+        "embedding": [1.0, 0.0],
+    },
+    {
+        "chunk_id": "b",
+        "source_path": "app/auth/token_service.py",
+        "text": "refresh token logic issues new access token",
+        "start": 11,
+        "end": 20,
+        "embedding": [0.9, 0.1],
+    },
+    {
+        "chunk_id": "c",
+        "source_path": "doc/authentication.md",
+        "text": "oauth callback and auth document",
+        "start": 21,
+        "end": 30,
+        "embedding": [0.0, 1.0],
+    },
+]
+
+if __name__ == "__main__":
+    with httpx.Client(base_url=HOST, timeout=5.0) as client:
+        client.delete(f"/{INDEX}")
+        client.put(f"/{INDEX}", json=build_index_body(dimension=2)).raise_for_status()
+
+        bulk_response = client.post(
+            f"/_bulk?refresh=true",
+            headers={"content-type": "application/x-ndjson"},
+            content=build_bulk_body(INDEX, docs)
+        )
+        # bulk_response.raise_for_status()
+        bulk_payload = assert_bulk_succeeded(bulk_response)
+        # print("bulk indexed: ", len(bulk_payload["items"]))
+
+        search_response = client.post(
+            f"/{INDEX}/_search",
+            json=build_knn_query([1.0, 0.0], top_k=2),
+        )
+        search_response.raise_for_status()
+        # print(json.dumps(search_response.json(), indent=2, ensure_ascii=False))
+
+        term_response = client.post(
+            f"/{INDEX}/_search",
+            json=build_term_query(["token", "refresh"], top_k=2),
+        )
+        term_response.raise_for_status()
+        result_list = parse_term_hits(term_response.json())
+        print(json.dumps(result_list, indent=2, ensure_ascii=False))
+        print()
+        print(json.dumps(term_response.json(), indent=2, ensure_ascii=False))
+
+        knn_results = parse_knn_hits(search_response.json())
+        # print(json.dumps(knn_results, indent=2, ensure_ascii=False))

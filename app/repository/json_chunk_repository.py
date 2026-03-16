@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 
 from app.ingestion.chunker import DocumentChunk
-from app.repository.base import ChunkRepository, RepoSearchResult
+from app.repository.base import ChunkRepository, RepoSearchResult, ChunkSearchHit
 
 ALLOWED = (".java", ".md", ".yml", ".txt", ".properties")
 EXCLUDED_DIRS = {".gradle", "gradle", ".github", "build", "target", ".git", ".idea", "node_modules", "__pycache__"}
@@ -43,15 +43,21 @@ class JsonChunkRepository(ChunkRepository):
         b = np.array(b)
         return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
-    def search_similar(self, query_embedding: list[float], top_k=3):
+    def search_similar(self, query_embedding: list[float], top_k=3) -> list[ChunkSearchHit]:
         scored = []
         for chunk in self.chunks:
             score = self._cosine_similarity(query_embedding, chunk.embedding)
-            scored.append((score, chunk))
-        scored.sort(key=lambda x: x[0], reverse=True)
-        return scored[:top_k]
+            scored.append(ChunkSearchHit(
+                chunk_id=chunk.chunk_id,
+                score=score,
+                source_path=chunk.source_path,
+                text=chunk.text,
+                start_offset=chunk.start,
+                end_offset=chunk.end,
+            ))
+        return sorted(scored, key=lambda x: x.score, reverse=True)[:top_k]
 
-    def search_by_term(self, terms, top_k=5):
+    def search_by_term(self, terms, top_k=5) -> list[ChunkSearchHit]:
         results = []
         for chunk in self.chunks:
             score = 0
@@ -69,11 +75,13 @@ class JsonChunkRepository(ChunkRepository):
             # 5. 결과를 RepoSearchResult로 반환
             if score > 0:
                 results.append(
-                    RepoSearchResult(
-                        path=chunk.source_path,
+                    ChunkSearchHit(
+                        source_path=chunk.source_path,
                         score=score,
-                        line=chunk.start,
-                        snippet=chunk.text[: 120]
+                        start_offset=chunk.start,
+                        end_offset=chunk.end,
+                        text=chunk.text,
+                        chunk_id=chunk.chunk_id
                     )
                 )
 
