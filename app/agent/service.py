@@ -98,10 +98,19 @@ class AgentService:
         if used_tool == "search_repo":
             terms = _extract_terms(routed_question)
             query_results = self.repository.search_by_term(terms)
+            sources = [
+                Source(
+                    path=result.path,
+                    snippet=result.snippet,
+                    line=result.line,
+                    score=float(result.score)
+                )
+                for result in query_results
+            ]
             return AgentResponse(
                 used_tool=used_tool,
                 reason=reason,
-                sources=query_results,
+                sources=sources,
                 answer=_build_answer(query_results)
             )
 
