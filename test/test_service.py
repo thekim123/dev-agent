@@ -1,4 +1,5 @@
 from app.agent.service import AgentService
+from app.repository.base import ChunkSearchHit
 
 
 class FakeEmbedder:
@@ -10,26 +11,28 @@ class FakeEmbedder:
 
 
 class FakeRepository:
-    def search_similar(self, query_embedding, top_k=3):
-        from app.ingestion.chunker import DocumentChunk
-        chunk = DocumentChunk(
+    def search_similar(self, query_embedding, top_k=3) -> list[ChunkSearchHit]:
+        from app.repository.base import ChunkSearchHit
+        chunk = ChunkSearchHit(
             chunk_id="a",
-            source_path="app/a.py",
+            source_path="app/auth/token_service.py",
             text="token refresh logic",
-            start=1,
-            end=10,
-            embedding=[1.0, 0.0],
+            start_offset=1,
+            end_offset=10,
+            score=10.0,
         )
-        return [(0.9, chunk)]
+        return [chunk]
 
-    def search_by_term(self, terms, top_k=5):
-        from app.repository.base import RepoSearchResult
+    def search_by_term(self, terms, top_k=5) -> list[ChunkSearchHit]:
+        from app.repository.base import ChunkSearchHit
         return [
-            RepoSearchResult(
-                path="app/a.py",
+            ChunkSearchHit(
+                source_path="app/auth/token_service.py",
                 score=10.0,
-                line=1,
-                snippet="token refresh logic",
+                start_offset=1,
+                end_offset=1,
+                text="token refresh logic",
+                chunk_id="a"
             )
         ]
 

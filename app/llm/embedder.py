@@ -28,7 +28,7 @@ class Embedder:
         response_body = json.loads(response["body"].read())
         return response_body["embedding"]
 
-    def query_embed(self, text, query):
+    def query_embed(self, text: str, query: str):
         query_text = f'아래의 문서를 참고하여 답하라. {query}\n'
         query_text += text
         body = {

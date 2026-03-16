@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Literal, Tuple
 
 from app.ingestion.chunker import DocumentChunk
+from app.repository.base import ChunkSearchHit
 
 
 class AgentRequest(BaseModel):
@@ -24,4 +25,4 @@ class AgentResponse(BaseModel):
 
 class BedrockResponse(BaseModel):
     answer: str
-    chunks: List[Tuple[float, DocumentChunk]]
+    chunks: List[ChunkSearchHit]

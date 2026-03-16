@@ -2,6 +2,8 @@ import json
 
 import httpx
 
+from app.repository.base import ChunkSearchHit
+
 HOST = "http://localhost:9200"
 INDEX = "code_chunks_demo"
 
@@ -108,15 +110,14 @@ def parse_knn_hits(payload: dict) -> list[dict]:
     hits = payload["hits"]["hits"]
     for hit in hits:
         source = hit["_source"]
-        results.append({
-            "score": hit["_score"],
-            "chunk_id": source["chunk_id"],
-            "source_path": source["source_path"],
-            "text": source["text"],
-            "start": source["start"],
-            "end": source["end"],
-            "embedding": source["embedding"],
-        })
+        results.append(ChunkSearchHit(
+            score=hit["_score"],
+            chunk_id=source["chunk_id"],
+            source_path=source["source_path"],
+            text=source["text"],
+            start_offset=source["start"],
+            end_offset=source["end"],
+        ))
     return results
 
 
@@ -125,12 +126,14 @@ def parse_term_hits(payload: dict) -> list[dict]:
     hits = payload["hits"]["hits"]
     for hit in hits:
         source = hit["_source"]
-        results.append({
-            "score": hit["_score"],
-            "path": source["source_path"],
-            "line": source["start"],
-            "snippet": source["text"][:120],
-        })
+        results.append(ChunkSearchHit(
+            score=hit["_score"],
+            chunk_id=source["chunk_id"],
+            start_offset=source["start"],
+            end_offset=source["end"],
+            source_path=source["source_path"],
+            text=source["text"],
+        ))
     return results
 
 
@@ -188,7 +191,7 @@ if __name__ == "__main__":
         )
         term_response.raise_for_status()
         result_list = parse_term_hits(term_response.json())
-        print(json.dumps(result_list, indent=2, ensure_ascii=False))
+        print(result_list)
         print()
         print(json.dumps(term_response.json(), indent=2, ensure_ascii=False))
 

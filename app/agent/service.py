@@ -2,6 +2,7 @@ import re
 from typing import Literal
 
 from app.agent.dto import AgentResponse, Source, BedrockResponse
+from app.agent.models import RouteDecision
 
 REPO_KEYWORDS = ("어디", "파일", "함수", "클래스")
 DOC_KEYWORDS = ("설명", "요약", "의미", "왜", "동작", "흐름", "정리")
@@ -69,9 +70,9 @@ def _build_answer(query_results):
     if not query_results:
         return "관련 위치를 찾지 못했습니다. 검색어를 더 구체적으로 바꿔보세요."
     if len(query_results) == 1:
-        return f"가장 관련 높은 구현은 `{query_results[0].path}`에 있습니다."
+        return f"가장 관련 높은 구현은 `{query_results[0].source_path}`에 있습니다."
 
-    top_paths = [f"{i + 1}. {item.path}" for i, item in enumerate(query_results[:3])]
+    top_paths = [f"{i + 1}. {item.source_path}" for i, item in enumerate(query_results[:3])]
     return '관련 구현 후보를 찾았습니다. 아래 파일들을 먼저 확인해보세요. \n' + '\n'.join(top_paths)
 
 
@@ -86,39 +87,40 @@ class AgentService:
         self.repository = repository
 
     def answer(self, question: str) -> AgentResponse:
-        used_tool, routed_question, reason, direct_answer = self._route(question)
-        if used_tool == "direct":
+        route_decision = self._route(question)
+        if route_decision.tool == "direct":
             return AgentResponse(
-                used_tool=used_tool,
-                reason=reason,
+                used_tool=route_decision.tool,
+                reason=route_decision.reason,
                 sources=[],
-                answer=direct_answer
+                answer=route_decision.direct_answer
             )
 
-        if used_tool == "search_repo":
-            terms = _extract_terms(routed_question)
+        if route_decision.tool == "search_repo":
+            terms = _extract_terms(route_decision.routed_question)
             query_results = self.repository.search_by_term(terms)
             sources = [
                 Source(
-                    path=result.path,
-                    snippet=result.snippet,
-                    line=result.line,
-                    score=float(result.score)
+                    path=result.source_path,
+                    # TODO: snippet 빌더 만들기
+                    snippet=result.text,
+                    line=result.start_offset,
+                    score=result.score
                 )
                 for result in query_results
             ]
             return AgentResponse(
-                used_tool=used_tool,
-                reason=reason,
+                used_tool=route_decision.tool,
+                reason=route_decision.reason,
                 sources=sources,
                 answer=_build_answer(query_results)
             )
 
-        bedrock_response = self.retrieve_docs(routed_question)
+        bedrock_response = self.retrieve_docs(route_decision.routed_question)
         if not bedrock_response.chunks:
             return AgentResponse(
-                used_tool=used_tool,
-                reason=reason,
+                used_tool=route_decision.tool,
+                reason=route_decision.reason,
                 sources=[],
                 answer="지금 가지고 있는 자료에서는 마땅한게 없네요."
             )
@@ -128,10 +130,10 @@ class AgentService:
             Source(
                 path=chunk.source_path,
                 snippet=(chunk.text[:SNIPPET_LEN] + " ...").replace("\n", " "),
-                line=chunk.start,
-                score=float(score)
+                line=chunk.start_offset,
+                score=float(chunk.score)
             )
-            for score, chunk in top
+            for chunk in top
         ]
 
         api_response = AgentResponse(
@@ -142,23 +144,48 @@ class AgentService:
         )
         return api_response
 
-    def _route(self, question: str) -> tuple[Literal["direct", "search_repo", "retrieve_docs"], str, str, str | None]:
+    def _route(self, question: str) -> RouteDecision:
         normalized = _normalize_question(question=question)
         directed_answer = _get_direct_answer(normalized)
         if directed_answer:
-            return "direct", normalized, "짧은 대화형 질문으로 판단", directed_answer
+            return RouteDecision(
+                tool="direct",
+                routed_question=normalized,
+                reason="짧은 대화형 질문으로 판단",
+                direct_answer=directed_answer
+            )
 
         stripped = _strip_greeting_prefix(normalized)
         if not stripped:
-            return "direct", normalized, "인사만 포함된 질문으로 판단", "안녕하세요. 질문을 주시면 바로 찾아보겠습니다."
+            return RouteDecision(
+                tool="direct",
+                routed_question=normalized,
+                reason="인사만 포함된 질문으로 판단",
+                direct_answer="안녕하세요. 질문을 주시면 바로 찾아보겠습니다."
+            )
 
         if _is_repo_question(stripped):
-            return "search_repo", stripped, "코드 위치/파일 탐색 질문으로 판단", None
+            return RouteDecision(
+                tool="search_repo",
+                routed_question=stripped,
+                reason="코드 위치/파일 탐색 질문으로 판단",
+                direct_answer=None
+            )
 
         if _is_doc_question(stripped):
-            return "retrieve_docs", stripped, "설명/요약 질문으로 판단", None
+            return RouteDecision(
+                tool="retrieve_docs",
+                routed_question=stripped,
+                reason="설명/요약 질문으로 판단",
+                direct_answer=None
+            )
 
-        return "retrieve_docs", stripped, "애매해서 retrieval 기본값 사용", None
+        return RouteDecision(
+            tool="retrieve_docs",
+            routed_question=stripped,
+            reason="애매해서 retrieval 기본값 사용",
+            direct_answer=None
+        )
 
     # loader.load_vector_store, loader.search_chunks를 감싸서
     # retrieve_docs(question)를 만들고,
@@ -166,17 +193,24 @@ class AgentService:
     def retrieve_docs(self, question):
         query_embed = self.embedder.embed(question)
         search_list = self.repository.search_similar(query_embed)
+        if not search_list:
+            return BedrockResponse(
+                answer="검색된 자료가 없습니다.",
+                chunks=[]
+            )
 
-        if search_list[0][0] < 0.4:
-            print()
-            response = BedrockResponse(answer='지금 가지고 있는 자료에서는 마땅한 데이터가 없네요.... 잘 모르겠어요....', chunks=[])
+        if search_list[0].score < 0.4:
+            response = BedrockResponse(
+                answer='지금 가지고 있는 자료에서는 마땅한 데이터가 없네요.... 잘 모르겠어요....',
+                chunks=[]
+            )
             return response
 
         else:
             doc_text = ''
             for doc in search_list:
-                doc_text += doc[1].text
+                doc_text += doc.text
             query_result = self.embedder.query_embed(doc_text, question)
-            print(query_result[0]["text"])
+            # print(query_result[0]["text"])
             response = BedrockResponse(answer=query_result[0]["text"], chunks=search_list)
             return response

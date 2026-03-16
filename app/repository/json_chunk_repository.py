@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 
 from app.ingestion.chunker import DocumentChunk
-from app.repository.base import ChunkRepository, RepoSearchResult, ChunkSearchHit
+from app.repository.base import ChunkRepository, ChunkSearchHit
 
 ALLOWED = (".java", ".md", ".yml", ".txt", ".properties")
 EXCLUDED_DIRS = {".gradle", "gradle", ".github", "build", "target", ".git", ".idea", "node_modules", "__pycache__"}
@@ -72,7 +72,7 @@ class JsonChunkRepository(ChunkRepository):
                 if term in text:
                     score += 5
 
-            # 5. 결과를 RepoSearchResult로 반환
+            # 5. 결과를 ChunkSearchHit로 반환
             if score > 0:
                 results.append(
                     ChunkSearchHit(
@@ -86,4 +86,4 @@ class JsonChunkRepository(ChunkRepository):
                 )
 
         results.sort(key=lambda x: x.score, reverse=True)
-        return results[:5]
+        return results[:top_k]
