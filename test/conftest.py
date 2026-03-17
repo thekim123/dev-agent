@@ -1,6 +1,6 @@
-import pytest
 import json
-from app.repository.json_chunk_repository import JsonChunkRepository
+
+import pytest
 from starlette.testclient import TestClient
 
 from app.agent.service import AgentService
