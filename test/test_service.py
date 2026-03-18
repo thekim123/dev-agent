@@ -17,8 +17,8 @@ class FakeRepository:
             chunk_id="a",
             source_path="app/auth/token_service.py",
             text="token refresh logic",
-            start_offset=1,
-            end_offset=10,
+            start=1,
+            end=10,
             score=10.0,
         )
         return [chunk]
@@ -29,8 +29,8 @@ class FakeRepository:
             ChunkSearchHit(
                 source_path="app/auth/token_service.py",
                 score=10.0,
-                start_offset=1,
-                end_offset=1,
+                start=1,
+                end=1,
                 text="token refresh logic",
                 chunk_id="a"
             )

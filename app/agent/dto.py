@@ -1,7 +1,7 @@
-from pydantic import BaseModel, Field
-from typing import List, Literal, Tuple
+from typing import List, Literal
 
-from app.ingestion.chunker import DocumentChunk
+from pydantic import BaseModel, Field
+
 from app.repository.base import ChunkSearchHit
 
 
@@ -12,7 +12,6 @@ class AgentRequest(BaseModel):
 class Source(BaseModel):
     path: str
     snippet: str | None = None
-    line: int | None = None
     score: float | None = None
 
 

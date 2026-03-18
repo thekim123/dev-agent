@@ -2,12 +2,10 @@ import json
 import os
 
 import boto3
-from dotenv import load_dotenv
 
 
 class Embedder:
     def __init__(self):
-        load_dotenv()
         self.client = boto3.client(
             service_name="bedrock-runtime",
             region_name="ap-south-1",

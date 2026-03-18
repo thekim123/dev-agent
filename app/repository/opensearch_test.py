@@ -31,15 +31,6 @@ def build_index_body(dimension: int) -> dict:
     }
 
 
-def build_bulk_body(index_name: str, docs: list[dict]) -> str:
-    lines = []
-    for doc in docs:
-        lines.append(json.dumps({"index": {
-            "_index": index_name,
-            "_id": doc["chunk_id"],
-        }}))
-        lines.append(json.dumps(doc))
-    return "\n".join(lines) + "\n"
 
 
 def build_knn_query(query_vector: list[float], top_k: int) -> dict:
@@ -115,8 +106,8 @@ def parse_knn_hits(payload: dict) -> list[dict]:
             chunk_id=source["chunk_id"],
             source_path=source["source_path"],
             text=source["text"],
-            start_offset=source["start"],
-            end_offset=source["end"],
+            start=source["start"],
+            end=source["end"],
         ))
     return results
 
@@ -129,8 +120,8 @@ def parse_term_hits(payload: dict) -> list[dict]:
         results.append(ChunkSearchHit(
             score=hit["_score"],
             chunk_id=source["chunk_id"],
-            start_offset=source["start"],
-            end_offset=source["end"],
+            start=source["start"],
+            end=source["end"],
             source_path=source["source_path"],
             text=source["text"],
         ))
@@ -166,17 +157,6 @@ docs = [
 
 if __name__ == "__main__":
     with httpx.Client(base_url=HOST, timeout=5.0) as client:
-        client.delete(f"/{INDEX}")
-        client.put(f"/{INDEX}", json=build_index_body(dimension=2)).raise_for_status()
-
-        bulk_response = client.post(
-            f"/_bulk?refresh=true",
-            headers={"content-type": "application/x-ndjson"},
-            content=build_bulk_body(INDEX, docs)
-        )
-        # bulk_response.raise_for_status()
-        bulk_payload = assert_bulk_succeeded(bulk_response)
-        # print("bulk indexed: ", len(bulk_payload["items"]))
 
         search_response = client.post(
             f"/{INDEX}/_search",

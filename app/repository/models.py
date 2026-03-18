@@ -6,6 +6,6 @@ class ChunkSearchHit:
     chunk_id: str
     source_path: str
     text: str
-    start_offset: int
-    end_offset: int
+    start: int
+    end: int
     score: float

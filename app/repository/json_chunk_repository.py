@@ -52,8 +52,8 @@ class JsonChunkRepository(ChunkRepository):
                 score=score,
                 source_path=chunk.source_path,
                 text=chunk.text,
-                start_offset=chunk.start,
-                end_offset=chunk.end,
+                start=chunk.start,
+                end=chunk.end,
             ))
         return sorted(scored, key=lambda x: x.score, reverse=True)[:top_k]
 
@@ -78,8 +78,8 @@ class JsonChunkRepository(ChunkRepository):
                     ChunkSearchHit(
                         source_path=chunk.source_path,
                         score=score,
-                        start_offset=chunk.start,
-                        end_offset=chunk.end,
+                        start=chunk.start,
+                        end=chunk.end,
                         text=chunk.text,
                         chunk_id=chunk.chunk_id
                     )

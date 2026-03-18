@@ -1,105 +1,74 @@
-opensearch_chunk_repository.py는 이제 구현해도 됩니다. 다
-  만 읽기 전용 repository adapter로만 채우세요.
-  중요한 원칙은 하나입니다. [opensearch_test.py](D:\python-
-  workspace\dev-agent\app\repository\opensearch_test.py)에서
-  가져올 것은 query body 생성과 hit 파싱뿐입니다.
-  build_index_body, build_bulk_body, assert_bulk_succeeded까
-  지 옮기면 책임이 섞입니다.
+ 네. 여기는 얇은 클래스 하나는 만드는 게 맞습니다.
+  하지만 Java식으로 크게 만들면 안 됩니다.
 
-  구현 순서
+  기준은 이겁니다.
 
-  1. [opensearch_chunk_repository.py](D:\python-
-     workspace\dev-
-     agent\app\repository\opensearch_chunk_repository.py) 맨
-     위에 작은 헬퍼 3개만 두세요.
+  - host
+  - index_name
+  - dimension
+  - HTTP 요청 방식
 
-  def _build_knn_query(query_embedding: Sequence[float],
-  top_k: int) -> dict: ...
-  def _build_term_query(terms: list[str], top_k: int) ->
-  dict: ...
-  def _parse_hit(hit: dict) -> ChunkSearchHit: ...
+  이런 지속되는 상태가 있으면 클래스가 맞습니다.
+  반대로 상태 없이 입력만 받아서 JSON 만드는 건 클래스에 넣지
+  마세요.
 
-  2. _parse_hit()는 반드시 ChunkSearchHit 하나만 반환하게 하
-     세요.
+  즉 구조는 이렇게 가야 합니다.
 
-  source = hit["_source"]
-  return ChunkSearchHit(
-      chunk_id=source["chunk_id"],
-      source_path=source["source_path"],
-      text=source["text"],
-      start_offset=source["start"],
-      end_offset=source["end"],
-      score=float(hit["_score"]),
-  )
+  1. 클래스가 가져야 하는 것
 
-  3. 클래스에는 아주 얇은 HTTP helper 하나만 두세요.
+  - OpenSearchIndexer
+  - 역할: OpenSearch 쓰기 어댑터
+  - 내부 상태:
+      - host
+      - index_name
+      - dimension
 
-  def _request(self, method: str, path: str, json_body: dict
-  | None = None) -> httpx.Response:
-      with httpx.Client(base_url=self.host, timeout=5.0) as
-  client:
-          return client.request(method, path,
-  json=json_body)
+  2. 클래스 안에 있어야 하는 메서드
 
-  OpenSearchClientManager 같은 건 만들지 마세요. 지금은 과설
-  계입니다.
+  - create_index()
+  - bulk_insert(...)
+  - count_docs()
+  - 필요하면 index_chunks(...)
+  - _request(...)
 
-  4. __init__는 host 정리만 하세요.
+  3. 클래스 밖에 있어야 하는 것
 
-  self.host = host.rstrip("/")
-  self.index_name = index_name
+  - build_index_body(...)
+  - build_bulk_body(...)
+  - assert_bulk_succeeded(...)
 
-  5. count()를 먼저 구현하세요.
+  왜냐하면 이 셋은 상태를 가진 객체 동작이 아니라 입력을 출력으
+  로 바꾸는 순수 함수에 가깝기 때문입니다.
 
-  - GET /{index}/_count
-  - 404면 0
-  - 아니면 raise_for_status()
-  - response.json()["count"] 반환
+  여기서 Java 습관을 바로 잡아야 합니다.
+  이 상황에서 나쁜 방식은 이런 겁니다.
 
-  6. search_similar()를 구현하세요.
+  - OpenSearchIndexBodyBuilder
+  - IndexCreationService
 
-  - POST /{index}/_search
-  - body는 _build_knn_query(...)
-  - 404면 []
-  - 성공하면 payload["hits"]["hits"]를 _parse_hit()으로 변환
-  - search_by_term()이 Source나 snippet을 만들면 안 됩니다.
-    그건 service 책임입니다.
+  이건 전부 과설계입니다. 파이썬에서는 이렇게 안 갑니 다.
 
-  메서드별 체크포인트
+  가장 Python다운 기준은 이겁니다.
 
-  - count()는 int
-  - search_similar()는 list[ChunkSearchHit]
-  - search_by_term()도 list[ChunkSearchHit]
-  - OpenSearch 응답 _source.start, _source.end를 내부에서는
-    start_offset, end_offset로 매핑
-  - 404 정책은 일관되게:
-      - count() -> 0
-      - search_*() -> []
+  즉 답만 짧게 말하면:
 
-  하지 말 것
+  네, indexer는 클래스 하나 두는 게 맞다. 하지만 body builder까
+  지 클래스에 넣지 말고, I/O 메서드만 가진 얇은 어댑터 클래스여
+  야 한다.
 
-  - [opensearch_test.py](D:\python-workspace\dev-
-    agent\app\repository\opensearch_test.py)를 import해서
-    production 코드에서 쓰기
-  - RepoSearchResult를 다시 살리기
-  - repository에서 Source나 API DTO 만들기
-  - base.py에 모델 다시 몰아넣기
+  네가 지금 만들면 되는 형태를 체크리스트로 적으면 이 겁니다.
 
-  구현 후 검증
+  - app/ingestion/opensearch_indexer.py
+  - class OpenSearchIndexer
+  - 모듈 함수 3개:
+      - build_index_body
+      - build_bulk_body
+      - assert_bulk_succeeded
+  - 클래스 메서드 4개:
+      - create_index
+      - bulk_insert
+      - count_docs
+      - index_chunks
 
-  1. scratch 스크립트로 인덱스 생성/적재
-  2. repository 인스턴스로 직접 확인
-
-  repo.count()
-  repo.search_similar([1.0, 0.0], top_k=2)
-  repo.search_by_term(["token", "refresh"], top_k=2)
-
-  3. 기대값
-
-  - count() == 3
-  - search_similar(...)[0].chunk_id == "a"
-  - search_by_term(...)[0].source_path == "app/auth/
-    token_service.py"
-
-  이 순서대로 직접 채우고 가져오세요. 그러면 다음엔 구현이
-  맞는지 리뷰만 하겠습니다.
+  원하면 다음엔
+  이 7개 중 각각의 입력/출력 계약을 어떻게 잡아야 하는
