@@ -10,6 +10,15 @@
     - API DTO
 - `ChunkSearchHit -> Source` 같은 변환을 service 경계에 두는 판단을 이해했다.
 - context manager, `close()`, `Path(__file__)`, `.env` 로딩 시점 같은 Python 운영 감각이 올라왔다.
+- 다만 `import`를 선언이 아니라 모듈 실행으로 보는 감각은 아직 약하다.
+    - Java의 class import 감각으로 top-level import를 가볍게 보고 있다.
+    - Python에서는 import가 런타임 의존성 전파와 테스트 격리에 직접 영향을 준다는 점을 현재 학습 중이다.
+- 의존성 주입을 클래스 이름이 아니라 행동 단위로 재구성하려는 질문이 나오기 시작했다.
+    - `Embedder` 구현 객체를 받을지보다 `embed`, `query_embed` 같은 callables를 직접 주입할 수 있는지 묻고 있다.
+    - 이는 Java식 구현 클래스 중심 사고에서 Python식 행동 중심 사고로 이동하는 중요한 신호다.
+- FastAPI dependency override를 "인자 주입 함수"가 아니라 "인자 없는 테스트용 provider"로 이해하고 closure로 수정했다.
+    - 함수 시그니처 자체가 DI 계약이라는 점을 실제 테스트 실패를 통해 학습했다.
+    - Python/FastAPI에서 lexical scope와 closure를 테스트 격리에 활용하는 감각이 올라왔다.
 - 다만 테스트를 더 강하게 쓰는 습관과 죽은 import/주석을 즉시 정리하는 습관은 보강이 더 필요하다.
 
 ### 검색 / OpenSearch / RAG 수준 변화

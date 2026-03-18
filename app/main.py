@@ -30,7 +30,8 @@ def get_chunk_repository():
 def get_agent_service() -> AgentService:
     return AgentService(
         repository=get_chunk_repository(),
-        embedder=get_embedder()
+        embed=get_embedder().embed,
+        query_embed=get_embedder().query_embed
     )
 
 

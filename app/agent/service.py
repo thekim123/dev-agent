@@ -1,7 +1,9 @@
 import re
+from collections.abc import Callable
 
 from app.agent.dto import AgentResponse, Source, BedrockResponse
 from app.agent.models import RouteDecision
+from app.repository.base import ChunkRepository
 from app.repository.models import ChunkSearchHit
 
 REPO_KEYWORDS = ("어디", "파일", "함수", "클래스")
@@ -97,9 +99,15 @@ def _extract_terms(question: str) -> list[str]:
 
 
 class AgentService:
-    def __init__(self, embedder, repository):
-        self.embedder = embedder
+    def __init__(
+            self,
+            repository: ChunkRepository,
+            embed: Callable[[str], list[float]],
+            query_embed: Callable[[str, str], str]
+    ):
         self.repository = repository
+        self.embed = embed
+        self.query_embed = query_embed
 
     def answer(self, question: str) -> AgentResponse:
         route_decision = self._route(question)
@@ -188,8 +196,8 @@ class AgentService:
     # retrieve_docs(question)를 만들고,
     # 반환값에 chunk_id/source_path/start/end/score를 붙여줘.
     def retrieve_docs(self, question: str) -> BedrockResponse:
-        query_embed = self.embedder.embed(question)
-        search_list = self.repository.search_similar(query_embed)
+        query_emb = self.embed(question)
+        search_list = self.repository.search_similar(query_emb)
         if not search_list:
             return BedrockResponse(
                 answer="검색된 자료가 없습니다.",
@@ -207,9 +215,7 @@ class AgentService:
             doc_text = ''
             for doc in search_list:
                 doc_text += doc.text
-            query_result = self.embedder.query_embed(doc_text, question)
+            query_result = self.query_embed(doc_text, question)
             # print(query_result[0]["text"])
-            response = BedrockResponse(answer=query_result[0]["text"], chunks=search_list)
+            response = BedrockResponse(answer=query_result, chunks=search_list)
             return response
-
-

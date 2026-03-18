@@ -54,21 +54,27 @@ def json_repo(vector_store_path):
 
 @pytest.fixture(scope="session")
 def opensearch_repo(vector_store_path):
-    return OpenSearchChunkRepository(host="localhost:9200", index_name="code_chunks")
+    return OpenSearchChunkRepository(host="http://localhost:9200", index_name="code_chunks")
 
 
 class FakeEmbedder:
     def embed(self, text):
         return [1.0, 0.0]
 
-    def query_embed(self, text, question):
-        return [{"text": "stubbed answer"}]
+    def query_embed(self, text: str, question: str) -> str:
+        return [{"text": "stubbed answer"}][0]["text"]
 
 
 @pytest.fixture
 def client(json_repo):
+    fake_embedder = FakeEmbedder()
+
     def override_get_agent_service():
-        return AgentService(repository=json_repo, embedder=FakeEmbedder())
+        return AgentService(
+            repository=json_repo,
+            embed=fake_embedder.embed,
+            query_embed=fake_embedder.query_embed,
+        )
 
     app.dependency_overrides[get_agent_service] = override_get_agent_service
 

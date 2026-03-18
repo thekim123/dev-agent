@@ -17,7 +17,7 @@ class Embedder:
         )
         self.query_model_id = os.getenv("BEDROCK_QUERY_MODEL_ID")
 
-    def embed(self, text) -> list[float]:
+    def embed(self, text: str) -> list[float]:
         body = json.dumps({"inputText": text})
         response = self.client.invoke_model(
             modelId=self.embed_model_id,
@@ -26,7 +26,7 @@ class Embedder:
         response_body = json.loads(response["body"].read())
         return response_body["embedding"]
 
-    def query_embed(self, text: str, query: str):
+    def query_embed(self, text: str, query: str) -> list[dict]:
         query_text = f'아래의 문서를 참고하여 답하라. {query}\n'
         query_text += text
         body = {
@@ -45,4 +45,4 @@ class Embedder:
             body=json.dumps(body)
         )
         response_body = json.loads(response["body"].read())
-        return response_body["output"]["message"]["content"]
+        return response_body["output"]["message"]["content"][0]["text"]

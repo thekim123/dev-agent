@@ -8,7 +8,8 @@ from test.test_service import FakeEmbedder, FakeRepository
 def test_agent_endpoint_returns_response_shape():
     client = TestClient(app)
     service = AgentService(
-        embedder=FakeEmbedder(),
+        embed=FakeEmbedder().embed,
+        query_embed=FakeEmbedder().query_embed,
         repository=FakeRepository()
     )
     app.dependency_overrides[get_agent_service] = lambda: service

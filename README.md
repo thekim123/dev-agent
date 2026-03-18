@@ -57,10 +57,21 @@ AWS 인증 정보는 표준 AWS 환경변수/프로파일 방식을
 
 ## 실행
 
+### 표준 명령
+
+- 이 프로젝트의 모든 실행/테스트 명령은 .venv\Scripts\python.exe 기준으로 실행한다.
+- bare python, bare pytest는 사용하지 않는다.
+- 패키지 설치도 같은 인터프리터로 수행한다.
+
+```shell
+  .\.venv\Scripts\python.exe -m pytest
+  .\.venv\Scripts\python.exe -m pip install -r requirement.txt
+```
+
 ### FastAPI 실행
 
 ```bash
-uvicorn app.main:app --reload
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
 ### API 호출

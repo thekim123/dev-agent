@@ -7,8 +7,8 @@ class FakeEmbedder:
     def embed(self, text):
         return [1.0, 0.0]
 
-    def query_embed(self, doc_text, question):
-        return [{"text": "요약 답변"}]
+    def query_embed(self, doc_text: str, question: str) -> str:
+        return [{"text": "요약 답변"}][0]["text"]
 
 
 class FakeRepository(ChunkRepository):
@@ -41,7 +41,8 @@ class FakeRepository(ChunkRepository):
 
 def test_answer_routes_repo_question():
     service = AgentService(
-        embedder=FakeEmbedder(),
+        embed=FakeEmbedder().embed,
+        query_embed=FakeEmbedder().query_embed,
         repository=FakeRepository()
     )
 
@@ -55,10 +56,10 @@ def test_answer_routes_repo_question():
 
 def test_answer_routes_direct_question():
     service = AgentService(
-        embedder=FakeEmbedder(),
+        embed=FakeEmbedder().embed,
+        query_embed=FakeEmbedder().query_embed,
         repository=FakeRepository()
     )
-
     result = service.answer("안녕?")
 
     assert result.used_tool == "direct"
@@ -68,7 +69,8 @@ def test_answer_routes_direct_question():
 
 def test_answer_routes_doc_question():
     service = AgentService(
-        embedder=FakeEmbedder(),
+        embed=FakeEmbedder().embed,
+        query_embed=FakeEmbedder().query_embed,
         repository=FakeRepository()
     )
 
