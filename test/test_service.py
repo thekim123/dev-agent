@@ -1,5 +1,6 @@
 from app.agent.service import AgentService
-from app.repository.base import ChunkSearchHit
+from app.repository.base import ChunkRepository
+from app.repository.models import ChunkSearchHit
 
 
 class FakeEmbedder:
@@ -10,9 +11,8 @@ class FakeEmbedder:
         return [{"text": "요약 답변"}]
 
 
-class FakeRepository:
+class FakeRepository(ChunkRepository):
     def search_similar(self, query_embedding, top_k=3) -> list[ChunkSearchHit]:
-        from app.repository.base import ChunkSearchHit
         chunk = ChunkSearchHit(
             chunk_id="a",
             source_path="app/auth/token_service.py",
@@ -24,7 +24,6 @@ class FakeRepository:
         return [chunk]
 
     def search_by_term(self, terms, top_k=5) -> list[ChunkSearchHit]:
-        from app.repository.base import ChunkSearchHit
         return [
             ChunkSearchHit(
                 source_path="app/auth/token_service.py",
@@ -35,6 +34,9 @@ class FakeRepository:
                 chunk_id="a"
             )
         ]
+
+    def count(self):
+        return 1
 
 
 def test_answer_routes_repo_question():
@@ -47,11 +49,31 @@ def test_answer_routes_repo_question():
 
     assert result.used_tool == "search_repo"
     assert result.sources
+    assert result.sources[0].path == "app/auth/token_service.py"
+    assert result.sources[0].snippet == "token refresh logic" in result.sources[0].snippet
 
 
 def test_answer_routes_direct_question():
-    ...
+    service = AgentService(
+        embedder=FakeEmbedder(),
+        repository=FakeRepository()
+    )
+
+    result = service.answer("안녕?")
+
+    assert result.used_tool == "direct"
+    assert result.sources == []
+    assert result.answer == '안녕하세요. 코드 위치 탐색과 문서 설명을 도와드릴 수 있습니다.'
 
 
 def test_answer_routes_doc_question():
-    ...
+    service = AgentService(
+        embedder=FakeEmbedder(),
+        repository=FakeRepository()
+    )
+
+    result = service.answer("이 프로젝트에서 인증 로직과 리프레시토큰 로직에 대해서 설명해줘.")
+
+    assert result.used_tool == "retrieve_docs"
+    assert result.sources[0].path == "app/auth/token_service.py"
+    assert result.answer == "요약 답변"
