@@ -1,130 +1,146 @@
-맞습니다. 일반론으로는 repository가 CRUD를 다 가질 수 있습
-  니다.
-  그래서 네 말 자체는 틀리지 않습니다.
+# dev-agent
 
-  하지만 여기서는 도메인 책임과 지금 프로젝트의 설계 범위를
-  분리해서 봐야 합니다.
+코드/문서 검색 기반 에이전트 프로젝트입니다.
 
-  ## 일반론
+질문을 받아 다음 두 경로 중 하나로 처리합니다.
 
-  보통 repository는 이런 걸 다 가질 수 있습니다.
+- `search_repo`: 코드 위치/파일 탐색
+- `retrieve_docs`: 임베딩 기반 문서 검색 후 답변
+  생성
 
-  - save
-  - update
-  - delete
-  - find/search
+OpenSearch를 사용하는 경우, 문서 chunk를 벡터 인
+덱스로 적재한 뒤 조회합니다.
 
-  즉 “영속성 계층에 대한 추상화”라면 삽입/수정/삭제도
-  repository 책임이 될 수 있습니다.
+## 주요 구성
 
-  ## 그런데 지금 이 프로젝트는 다릅니다
+- `app/agent`
+    - 질문 라우팅과 응답 생성
+- `app/repository`
+    - 검색용 read-side adapter
+    - `JsonChunkRepository`,
+      `OpenSearchChunkRepository`
+- `app/ingestion`
+    - chunk 생성과 OpenSearch 적재
+    - `OpenSearchIndexer`
+- `app/llm`
+    - 임베딩 생성과 답변 생성
 
-  현재 base.py를 보면 repository가 표현하는 건 사실상 이런
-  역할입니다.
+## 아키텍처 요약
 
-  - 이미 만들어진 chunk 집합을 조회한다
-  - 질의에 대해 유사한 chunk를 찾는다
-  - term으로 chunk를 찾는다
-  - count를 센다
+이 프로젝트는 read/write 책임을 분리합니다.
 
-  즉 지금의 ChunkRepository는 쓰기 저장소가 아니라 검색용 읽
-  기 포트에 가깝습니다.
+- `ChunkRepository`
+    - 조회 전용 포트
+    - `count`, `search_by_term`, `search_similar`
+- `OpenSearchIndexer`
+    - 적재 전용 write-side adapter
+    - 인덱스 생성, bulk insert 담당
 
-  이 차이가 중요합니다.
+즉 OpenSearch 적재와 조회를 같은 repository 책임
+으로 섞지 않습니다.
 
-  ### 지금 repository에 삽입을 넣으면 왜 애매해지나
+## 환경 변수
 
-  현재 데이터가 만들어지는 과정은 원래 별도 흐름입니다.
+`.env` 또는 OS 환경변수로 아래 값을 설정합니다.
 
-  - 파일 읽기
-  - chunk 생성
-  - embedding 생성
-  - 저장소에 적재
+- `CHUNK_REPOSITORY_BACKEND`
+    - `json` 또는 `opensearch`
+- `OPENSEARCH_HOST`
+    - 예: `http://localhost:9200`
+- `OPENSEARCH_INDEX`
+    - 예: `code_chunks_demo`
+- `BEDROCK_EMBEDDING_MODEL_ID`
+- `BEDROCK_QUERY_MODEL_ID`
 
-  이건 retrieval과는 다른 유스케이스입니다.
-  즉 “문서 인덱싱 파이프라인”이지 “질문 응답 시 조회”가 아닙
-  니다.
+AWS 인증 정보는 표준 AWS 환경변수/프로파일 방식을
+사용합니다.
 
-  그래서 지금 단계에서 save()까지 넣으면 문제가 생깁니다.
+## 실행
 
-  1. 읽기 유스케이스와 인덱싱 유스케이스가 섞임
-  2. repository 계약이 갑자기 커짐
-  3. JsonChunkRepository와 OpenSearchChunkRepository가 동시
-     에 쓰기까지 맞춰야 함
-  4. 아직 안 정한 책임까지 먼저 끌어오게 됨
+### FastAPI 실행
 
-  이건 전형적인 “앞으로 필요할 것 같아서 지금 넣는” 설계입니
-  다.
-  파이썬스럽지 않고, 설계 경계를 흐립니다.
+```bash
+uvicorn app.main:app --reload
+```
 
-  ## 더 정확한 표현
+### API 호출
 
-  지금 네가 가진 것은 Repository라는 이름이지만, 실제 의미는
-  이런 쪽입니다.
+POST /agent
 
-  - ChunkSearchRepository
-  - ChunkReadRepository
-  - ChunkQueryRepository
+예시 요청:
 
-  즉 이름은 repository인데, 실제 역할은 읽기 포트입니다.
+```
+{
+  "question": "refresh token 코드는 어디에 있어?"
+}
+```
 
-  ## 그러면 삽입은 어디 있나
+예시 응답:
 
-  삽입은 보통 아래 둘 중 하나입니다.
+```
+  - used_tool
+  - reason
+  - sources
+  - answer
+```
 
-  1. 별도 ingestion service / indexer
+## OpenSearch 적재
 
-  - ChunkIndexer
-  - OpenSearchIndexer
-  - IngestionPipeline
+OpenSearch를 사용할 경우, 먼저 chunk 데이터를 인
+덱스에 적재해야 합니다.
 
-  2. 별도 write repository
+권장 흐름:
 
-  - ChunkWriteRepository
+1. 문서 chunk 생성
+2. embedding 생성
+3. OpenSearch 인덱스 생성
+4. bulk insert
+5. repository 조회 검증
 
-  지금 단계에서는 1번이 더 자연스럽습니다.
-  왜냐하면 삽입은 단순 save가 아니라 보통 이런 과정을 포함하
-  기 때문입니다.
+vector_store.json이 있으면 이를 seed 데이터로 사
+용해 적재/조회 검증을 먼저 할 수 있습니다.
 
-  - chunking
-  - embedding
-  - bulk indexing
-  - refresh / upsert policy
+## 개발 순서
 
-  이건 단순 CRUD보다 “인덱싱 파이프라인”에 더 가깝습니다.
+권장 개발 순서는 아래와 같습니다.
 
-  ## 엄격하게 정리하면
+1. ingestion/indexer 검증
+2. repository 조회 검증
+3. service 연결
+4. API 확인
+5. 테스트 추가
+6. 검색 품질 개선
 
-  네 질문에 대한 가장 정확한 답은 이겁니다.
+## 테스트
 
-  - 일반적으로 repository는 삽입/수정/삭제를 가질 수 있다
-  - 하지만 현재 이 프로젝트의 ChunkRepository는 검색용 읽기
-    포트로 좁게 정의되어 있다
-  - 따라서 지금 단계에서 쓰기까지 넣는 건 책임 확대다
-  - 나중에 인덱싱 기능을 붙일 때는 별도 write 쪽 abstraction
-    으로 다루는 게 맞다
+우선순위는 아래와 같습니다.
 
-  ## 실무 감각으로 보면
+- service 테스트
+- repository 통합 테스트
+- API 테스트
 
-  이건 Java에서도 사실 같은 문제입니다.
+## 주의사항
 
-  - UserRepository라면 CRUD 다 있어도 자연스러움
-  - SearchRepository라면 조회 중심이 자연스러움
-  - Indexer는 별도 컴포넌트가 되는 경우가 많음
+- Source.line 같은 실제로 보장하지 않는 필드는
+  API에 노출하지 않습니다.
+- OpenSearch mapping은 dynamic: "strict"를 사용하
+  므로, 적재 문서 shape와 mapping은 반드시 일치해
+  야 합니다.
+- .env 로딩은 앱 시작 시 한 번만 명시적으로 처리
+  해야 합니다.
 
-  OpenSearch는 특히 더 그렇습니다.
-  이건 단순 DB row 저장이 아니라 검색 인덱스 구축이기 때문입
-  니다.
+## 현재 상태
 
-  ## 결론
+현재 구현 범위:
 
-  한 줄로 정리하면:
+- OpenSearch indexer 추가
+- OpenSearch repository 조회 구현
+- AgentService 연결
+- service 단위 수동 검증 완료
 
-  일반론으로는 repository가 CRUD를 가져도 되지만, 지금 네 프
-  로젝트의 ChunkRepository는 '검색 조회 포트'로 좁게 정의되
-  어 있으므로 삽입은 별도 ingestion/indexing 책임으로 두는
-  게 더 맞습니다.
+남은 작업:
 
-  원하면 다음엔 내가
-  읽기 repository와 인덱싱 컴포넌트를 어떻게 분리하면 좋은지
-  아주 작은 구조 예시로 설명해드리겠습니다.
+- 테스트 추가
+- 결과 dedupe
+- 라우팅/threshold 튜닝
+- 검색 품질 개선
