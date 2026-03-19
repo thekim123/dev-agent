@@ -6,16 +6,12 @@ import boto3
 
 class Embedder:
     def __init__(self):
+        region_name = os.getenv("BEDROCK_REGION_NAME")
         self.client = boto3.client(
             service_name="bedrock-runtime",
-            region_name="ap-south-1",
+            region_name=region_name,
         )
         self.embed_model_id = os.getenv("BEDROCK_EMBEDDING_MODEL_ID")
-        self.query_client = boto3.client(
-            service_name="bedrock-runtime",
-            region_name="ap-south-1",
-        )
-        self.query_model_id = os.getenv("BEDROCK_QUERY_MODEL_ID")
 
     def embed(self, text: str) -> list[float]:
         body = json.dumps({"inputText": text})
@@ -25,24 +21,3 @@ class Embedder:
         )
         response_body = json.loads(response["body"].read())
         return response_body["embedding"]
-
-    def query_embed(self, text: str, query: str) -> list[dict]:
-        query_text = f'아래의 문서를 참고하여 답하라. {query}\n'
-        query_text += text
-        body = {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"text": query_text}
-                    ]
-                }
-            ]
-        }
-
-        response = self.query_client.invoke_model(
-            modelId=self.query_model_id,
-            body=json.dumps(body)
-        )
-        response_body = json.loads(response["body"].read())
-        return response_body["output"]["message"]["content"][0]["text"]

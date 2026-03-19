@@ -61,19 +61,22 @@ class FakeEmbedder:
     def embed(self, text):
         return [1.0, 0.0]
 
-    def query_embed(self, text: str, question: str) -> str:
+
+class FakeLLMClient:
+    def query_to_llm(self, text: str, question: str) -> str:
         return [{"text": "stubbed answer"}][0]["text"]
 
 
 @pytest.fixture
 def client(json_repo):
     fake_embedder = FakeEmbedder()
+    fake_llm_client = FakeLLMClient()
 
     def override_get_agent_service():
         return AgentService(
             repository=json_repo,
             embed=fake_embedder.embed,
-            query_embed=fake_embedder.query_embed,
+            query_to_llm=fake_llm_client.query_to_llm,
         )
 
     app.dependency_overrides[get_agent_service] = override_get_agent_service

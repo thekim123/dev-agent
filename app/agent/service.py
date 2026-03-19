@@ -103,11 +103,11 @@ class AgentService:
             self,
             repository: ChunkRepository,
             embed: Callable[[str], list[float]],
-            query_embed: Callable[[str, str], str]
+            query_to_llm: Callable[[str, str], str]
     ):
         self.repository = repository
         self.embed = embed
-        self.query_embed = query_embed
+        self.query_to_llm = query_to_llm
 
     def answer(self, question: str) -> AgentResponse:
         route_decision = self._route(question)
@@ -222,7 +222,7 @@ class AgentService:
             doc_text = ''
             for doc in search_list:
                 doc_text += doc.text
-            query_result = self.query_embed(doc_text, question)
+            query_result = self.query_to_llm(doc_text, question)
             # print(query_result[0]["text"])
             response = BedrockResponse(answer=query_result, chunks=search_list)
             return response

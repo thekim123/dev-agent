@@ -2,7 +2,7 @@ from starlette.testclient import TestClient
 
 from app.agent.service import AgentService
 from app.main import app, get_agent_service
-from test.conftest import FakeEmbedder
+from test.conftest import FakeEmbedder, FakeLLMClient
 from test.test_service import FakeRepository
 
 
@@ -10,7 +10,7 @@ def test_agent_endpoint_returns_response_shape():
     client = TestClient(app)
     service = AgentService(
         embed=FakeEmbedder().embed,
-        query_embed=FakeEmbedder().query_embed,
+        query_to_llm=FakeLLMClient().query_to_llm,
         repository=FakeRepository()
     )
     app.dependency_overrides[get_agent_service] = lambda: service

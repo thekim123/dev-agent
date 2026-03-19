@@ -1,7 +1,7 @@
 from app.agent.service import AgentService
 from app.repository.base import ChunkRepository
 from app.repository.models import ChunkSearchHit
-from test.conftest import FakeEmbedder
+from test.conftest import FakeEmbedder, FakeLLMClient
 
 
 class FakeRepository(ChunkRepository):
@@ -35,7 +35,7 @@ hits = [ChunkSearchHit(
 def test_answer_routes_repo_question():
     service = AgentService(
         embed=FakeEmbedder().embed,
-        query_embed=FakeEmbedder().query_embed,
+        query_to_llm=FakeLLMClient().query_to_llm,
         repository=FakeRepository(hits=hits)
     )
 
@@ -49,7 +49,7 @@ def test_answer_routes_repo_question():
 def test_answer_routes_direct_question():
     service = AgentService(
         embed=FakeEmbedder().embed,
-        query_embed=FakeEmbedder().query_embed,
+        query_to_llm=FakeLLMClient().query_to_llm,
         repository=FakeRepository(hits=hits)
     )
     result = service.answer("안녕?")
@@ -62,7 +62,7 @@ def test_answer_routes_direct_question():
 def test_answer_retrieve_no_docs():
     service = AgentService(
         embed=FakeEmbedder().embed,
-        query_embed=FakeEmbedder().query_embed,
+        query_to_llm=FakeLLMClient().query_to_llm,
         repository=FakeRepository()
     )
     result = service.answer("이 프로젝트에서 인증 로직과 리프레시토큰 로직에 대해서 설명해줘.")
@@ -74,7 +74,7 @@ def test_answer_retrieve_no_docs():
 def test_answer_routes_doc_question():
     service = AgentService(
         embed=FakeEmbedder().embed,
-        query_embed=FakeEmbedder().query_embed,
+        query_to_llm=FakeLLMClient().query_to_llm,
         repository=FakeRepository(hits=hits)
     )
 
@@ -115,7 +115,7 @@ def test_retrieve_docs_remove_duplicate():
 
     service = AgentService(
         embed=FakeEmbedder().embed,
-        query_embed=FakeEmbedder().query_embed,
+        query_to_llm=FakeLLMClient().query_to_llm,
         repository=FakeRepository(hits=test_hits)
     )
     answer = service.answer("이 프로젝트에서 인증 로직과 리프레시토큰 로직에 대해서 설명해줘.")

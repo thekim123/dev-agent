@@ -6,7 +6,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from app.agent.dto import AgentResponse, AgentRequest
 from app.agent.service import AgentService
 from app.llm.embedder import Embedder
-from app.llm.factory import create_embedder
+from app.llm.factory import create_embedder, create_llm_client
 from app.repository.factory import create_chunk_repository
 
 load_dotenv()
@@ -27,11 +27,16 @@ def get_chunk_repository():
 
 
 @lru_cache
+def get_llm_client():
+    return create_llm_client()
+
+
+@lru_cache
 def get_agent_service() -> AgentService:
     return AgentService(
         repository=get_chunk_repository(),
         embed=get_embedder().embed,
-        query_embed=get_embedder().query_embed
+        query_to_llm=get_llm_client().query_to_llm
     )
 
 
