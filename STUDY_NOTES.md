@@ -10,22 +10,26 @@
 - [x] `FakeRepository`에 `hits` 주입 가능하게 개선
 - [x] `search_repo` path dedupe 구현 + 테스트
 
-## 다음에 해야 할 일
+## 지금 해야 할 일: tool-calling loop 구현 (rule-based → LLM 라우팅)
 
-### 우선순위 1. 이름 정리: `query_embed` → 적절한 이름으로 변경
-- `query_embed`는 실제로 Bedrock LLM에 답변 생성을 요청하는 함수다.
-- 임베딩과 무관하므로 이름이 완전히 잘못되어 있다.
-- 테스트가 고정된 지금이 이름을 바꿀 시점이다.
+### 1단계: LLM에게 tool 선택을 요청하는 함수 만들기
+- [ ] tool 목록과 설명을 담은 프롬프트 작성 (search_repo, retrieve_docs, direct)
+- [ ] Bedrock에 보내서 JSON 응답을 받는 함수 작성
+- [ ] 응답을 파싱해서 `RouteDecision`으로 변환
 
-### 우선순위 2. 남은 품질 개선
+### 2단계: `_route`를 교체
+- [ ] 기존 `_route`의 rule-based 로직을 1단계 함수로 교체
+- [ ] 기존 `_route`는 비교용으로 일단 남겨둘 것
+
+### 3단계: 테스트
+- [ ] 기존 테스트가 통과하는지 확인
+- [ ] LLM 호출을 fake로 대체할 방법 고민
+
+## 나중에 할 일
+- `query_embed` 이름 변경 (실제로는 Bedrock 답변 생성 함수, 임베딩과 무관)
 - retrieval threshold 조정
-- `.md` 문서를 얼마나 보여줄지 정책 결정
+- `.md` 문서 노출 정책 결정
 - FastAPI import 구조에서 eager dependency 정리
-
-### 우선순위 3. mini agent로 확장
-- tool abstraction
-- tool result
-- 1~2 step loop
 
 ## 이번 세션에서 정리된 핵심
 
