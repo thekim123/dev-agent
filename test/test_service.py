@@ -11,31 +11,12 @@ class FakeRepository(ChunkRepository):
     def search_similar(self, query_embedding, top_k=3) -> list[ChunkSearchHit]:
         if len(self.hits) == 0:
             return []
-
-        chunk = ChunkSearchHit(
-            chunk_id="a",
-            source_path="app/auth/token_service.py",
-            text="token refresh logic",
-            start=1,
-            end=10,
-            score=10.0,
-        )
-        return [chunk]
+        return self.hits
 
     def search_by_term(self, terms, top_k=5) -> list[ChunkSearchHit]:
         if len(self.hits) == 0:
             return []
-
-        return [
-            ChunkSearchHit(
-                source_path="app/auth/token_service.py",
-                score=10.0,
-                start=1,
-                end=1,
-                text="token refresh logic",
-                chunk_id="a"
-            )
-        ]
+        return self.hits
 
     def count(self):
         return 1
@@ -102,3 +83,43 @@ def test_answer_routes_doc_question():
     assert result.used_tool == "retrieve_docs"
     assert result.sources[0].path == "app/auth/token_service.py"
     assert result.answer == "stubbed answer"
+
+
+def test_retrieve_docs_remove_duplicate():
+    test_hits = [
+        ChunkSearchHit(
+            source_path="app/auth/token_service.py",
+            score=10.0,
+            start=1,
+            end=1,
+            text="token refresh logic_a",
+            chunk_id="a"
+        ),
+        ChunkSearchHit(
+            source_path="app/auth/token_service.py",
+            score=9.0,
+            start=1,
+            end=1,
+            text="token refresh logic_b",
+            chunk_id="b"
+        ),
+        ChunkSearchHit(
+            source_path="app/auth/token_service.py",
+            score=5.0,
+            start=1,
+            end=1,
+            text="token refresh logic_c",
+            chunk_id="c"
+        )
+    ]
+
+    service = AgentService(
+        embed=FakeEmbedder().embed,
+        query_embed=FakeEmbedder().query_embed,
+        repository=FakeRepository(hits=test_hits)
+    )
+    answer = service.answer("이 프로젝트에서 인증 로직과 리프레시토큰 로직에 대해서 설명해줘.")
+    assert answer.used_tool == "retrieve_docs"
+    assert len(answer.sources) == 1
+    assert answer.sources[0].path == "app/auth/token_service.py"
+    assert answer.answer == "stubbed answer"

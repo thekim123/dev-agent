@@ -140,7 +140,14 @@ class AgentService:
             )
 
         top = bedrock_response.chunks[:3]
-        sources = [_to_source(chunk) for chunk in top]
+        remove_duplicates = [top[0]]
+        exist_path = [top[0].source_path]
+        for t in top:
+            if t.source_path not in exist_path:
+                exist_path.append(t.source_path)
+                remove_duplicates.append(t)
+
+        sources = [_to_source(chunk) for chunk in remove_duplicates]
         api_response = AgentResponse(
             used_tool="retrieve_docs",
             reason="문서 임베딩 검색 기반",
