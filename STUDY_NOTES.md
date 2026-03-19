@@ -1,5 +1,32 @@
 # OpenSearch Study Notes
 
+## 2026-03-19 완료한 작업
+- [x] `test/test_service.py` 깨진 assert 수정 (`==` + `in` 연산자 우선순위 문제)
+- [x] `test/agent_test.py`에서 `print()` 제거
+- [x] API 테스트에 계약 검증 추가 (`used_tool`, `answer`, 응답 키)
+- [x] `search_repo` / `retrieve_docs` / `direct` 케이스 분리
+- [x] 검색 결과 없음 케이스 추가
+- [x] `FakeEmbedder` 중복 제거 → `conftest.py`로 통합
+- [x] `FakeRepository`에 `hits` 주입 가능하게 개선
+- [x] `search_repo` path dedupe 구현 + 테스트
+
+## 다음에 해야 할 일
+
+### 우선순위 1. 이름 정리: `query_embed` → 적절한 이름으로 변경
+- `query_embed`는 실제로 Bedrock LLM에 답변 생성을 요청하는 함수다.
+- 임베딩과 무관하므로 이름이 완전히 잘못되어 있다.
+- 테스트가 고정된 지금이 이름을 바꿀 시점이다.
+
+### 우선순위 2. 남은 품질 개선
+- retrieval threshold 조정
+- `.md` 문서를 얼마나 보여줄지 정책 결정
+- FastAPI import 구조에서 eager dependency 정리
+
+### 우선순위 3. mini agent로 확장
+- tool abstraction
+- tool result
+- 1~2 step loop
+
 ## 이번 세션에서 정리된 핵심
 
 ### 1. 지금 만든 것은 agent라기보다 retrieval 시스템이다
@@ -81,17 +108,8 @@
   - Source 매핑
   - answer 조합
 
-## 현재 남은 개선 포인트
-- `search_repo` 결과 path dedupe
-- 코드 질문에서 문서(`.md`)를 얼마나 보여줄지 정책 정리
-- retrieval threshold 튜닝
-- FastAPI import 구조에서 eager dependency 정리
-- 진짜 agent스럽게 가려면 tool-calling loop 도입
-
-## 다음 단계
-1. 테스트 정리 및 보강
-2. 결과 품질 개선
-3. retrieval assistant에서 mini agent로 확장
-   - tool abstraction
-   - tool result
-   - 1~2 step loop
+## 교훈
+- Python에서 `in`, `==`, `is`, `not in` 같은 비교 연산자는 chaining된다. 괄호로 의도를 명확히 해야 한다.
+- `if not []`는 `True`다. 빈 리스트는 falsy.
+- 테스트용 fake 객체는 데이터를 주입받게 만들면 케이스마다 재사용할 수 있다.
+- YAGNI: 지금 안 쓰이면 옮기지 않는다.
