@@ -10,23 +10,23 @@
 - [x] `FakeRepository`에 `hits` 주입 가능하게 개선
 - [x] `search_repo` path dedupe 구현 + 테스트
 
-## 지금 해야 할 일: tool-calling loop 구현 (rule-based → LLM 라우팅)
+## 2026-03-22 완료한 작업
+- [x] LLM 라우팅 전환 후 레거시 코드 정리 (주석 코드, 안 쓰는 상수/함수 제거)
+- [x] `LLMClient`에서 `_extract_markdown`, `print` 제거, 미사용 import 정리
+- [x] `FakeLLMClient`를 LLM 라우팅에 맞게 수정 (prompt 내용 기반 분기)
+- [x] `LLMClient` 테스트: 반환값 비교 방식 개선 (json.dumps된 변수 사용)
+- [x] LLM 응답의 마크다운 코드블록 문제 이해 (```json 감싸기)
+- [x] `_extract_markdown` 책임 위치 판단 → `LLMClient`가 아닌 호출 쪽(`service.py`)에서 처리
+- [x] `str` 불변성과 재바인딩 개념 확인
 
-### 1단계: LLM에게 tool 선택을 요청하는 함수 만들기
-- [ ] tool 목록과 설명을 담은 프롬프트 작성 (search_repo, retrieve_docs, direct)
-- [ ] Bedrock에 보내서 JSON 응답을 받는 함수 작성
-- [ ] 응답을 파싱해서 `RouteDecision`으로 변환
+## 지금 해야 할 일
 
-### 2단계: `_route`를 교체
-- [ ] 기존 `_route`의 rule-based 로직을 1단계 함수로 교체
-- [ ] 기존 `_route`는 비교용으로 일단 남겨둘 것
-
-### 3단계: 테스트
-- [ ] 기존 테스트가 통과하는지 확인
-- [ ] LLM 호출을 fake로 대체할 방법 고민
+### 다음 과제 후보
+- `_extract_markdown`을 `service.py`의 `_route`에 적용
+- `_route`의 JSON 파싱 실패 시 처리 방법 결정
+- agent loop 설계: 현재는 1회 호출 구조 → 다단계 실행, 중간 결과 기반 재판단
 
 ## 나중에 할 일
-- `query_embed` 이름 변경 (실제로는 Bedrock 답변 생성 함수, 임베딩과 무관)
 - retrieval threshold 조정
 - `.md` 문서 노출 정책 결정
 - FastAPI import 구조에서 eager dependency 정리
