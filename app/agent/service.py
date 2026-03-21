@@ -1,3 +1,4 @@
+import json
 import re
 from collections.abc import Callable
 
@@ -6,43 +7,7 @@ from app.agent.models import RouteDecision
 from app.repository.base import ChunkRepository
 from app.repository.models import ChunkSearchHit
 
-REPO_KEYWORDS = ("어디", "파일", "함수", "클래스")
-DOC_KEYWORDS = ("설명", "요약", "의미", "왜", "동작", "흐름", "정리")
 STOPWORDS = {"어디", "설명", "해줘", "해주세요", "무엇", "뭐", "찾아줘", "찾아", "관련", "있는", "인가", "이거"}
-DIRECT_PATTERNS = {
-    "greeting": ["안녕", "하이", "hello"],
-    "capability": ["뭐 할 수 있어", "무엇을 할 수 있어", "너 누구야"],
-    "thanks": ["고마워", "thanks"],
-}
-
-GREETING_PREFIX_RE = re.compile(
-    r"^\s*(안녕|하이|hello|hi)[!?.~\s,]*",
-    re.IGNORECASE,
-)
-
-DIRECT_RULES = [
-    (
-        re.compile(r"^\s*(안녕|하이|hello|hi)[!?.~\s]*$", re.IGNORECASE),
-        "안녕하세요. 코드 위치 탐색과 문서 설명을 도와드릴 수 있습니다.",
-    ),
-    (
-        re.compile(r"^\s*(너\s*)?(뭐|무엇)을?\s*할\s*수\s*있어[?!.~\s]*$", re.IGNORECASE),
-        "문서 설명 질문은 retrieve_docs로, 코드 위치 질문은 search_repo로 처리할 수 있습니다.",
-    ),
-    (
-        re.compile(r"^\s*(너\s*)?누구야[?!.~\s]*$", re.IGNORECASE),
-        "질문을 받아 문서 검색이나 코드 위치 탐색을 수행하는 에이전트입니다.",
-    ),
-    (
-        re.compile(r"^\s*(고마워|감사|thanks)[!?.~\s]*$", re.IGNORECASE),
-        "필요한 질문을 이어서 주시면 됩니다.",
-    ),
-]
-
-greeting = '안녕하세요. 문서 설명 질문은 retrieve_docs로, 코드 위치 질문은 search_repo로 도와드릴 수 있습니다.'
-capability = '문서 내용 설명, 코드 위치 탐색, 관련 파일 안내를 도와드릴 수 있습니다.'
-thanks = '필요한 질문을 이어서 주시면 됩니다.'
-SNIPPET_LEN = 220
 
 
 def _build_snippet(text: str, limit: int = 220) -> str:
@@ -52,35 +17,19 @@ def _build_snippet(text: str, limit: int = 220) -> str:
     return normalized[:limit] + " ..."
 
 
+def _extract_markdown(text: str) -> str:
+    match = re.search(r'\{.*}', text, re.DOTALL)
+    if match:
+        return match.group()
+    return text
+
+
 def _to_source(hit: ChunkSearchHit) -> Source:
     return Source(
         path=hit.source_path,
         snippet=_build_snippet(hit.text),
         score=hit.score,
     )
-
-
-def _normalize_question(question: str) -> str:
-    return re.sub(r"\s+", " ", question).strip()
-
-
-def _strip_greeting_prefix(question: str) -> str:
-    return GREETING_PREFIX_RE.sub("", question, count=1).strip()
-
-
-def _get_direct_answer(question) -> str | None:
-    for pattern, answer in DIRECT_RULES:
-        if pattern.fullmatch(question):
-            return answer
-    return None
-
-
-def _is_repo_question(q: str) -> bool:
-    return any(k in q for k in REPO_KEYWORDS)
-
-
-def _is_doc_question(question: str) -> bool:
-    return any(k in question for k in DOC_KEYWORDS)
 
 
 def _build_answer(query_results):
@@ -98,12 +47,48 @@ def _extract_terms(question: str) -> list[str]:
     return [t for t in terms if len(t) >= 2 and t not in STOPWORDS]
 
 
+def _build_retrieve_prompt(search_list, question):
+    query_text = f'아래의 문서를 참고하여 답하라. {question}\n'
+    doc_text = ''
+    for doc in search_list:
+        doc_text += doc.text
+    query_text += doc_text
+    return query_text
+
+
+def _build_route_prompt(question: str) -> str:
+    return f"""
+            아래의 도구중 질문에 가장 알맞는 도구를 골라서 json으로 반환하라.
+            고른 도구의 이름은 tool에 적는다.
+            도구를 고른 이유는 reason항목에 적는다.
+            tool이 direct일 경우에는 direct answer에 그 답을 적어서 반환한다.
+            
+            유저의 질문의 의도가 명시되도록 안녕?이라거나 아 근데와 같은 불필요한 
+            말을 잘라내고 routed_question에 적는다.
+            
+            응답 프로토콜은 아래와 같다.
+            {{
+                \"tool\": \"\",
+                \"routed_question\": \"\",
+                \"reason\": \"\",
+                \"direct_answer\": \"\"
+            }}
+            
+            당신이 사용할 수 있는 도구는 아래와 같다.
+            direct: 현재 가지고 있는 프로젝트에 대한 질문이 아닌 경우
+            search_repo: 현재 가지고 있는 프로젝트 중에서 코드의 위치를 파악하는 도구
+            retrieve_docs: 현재 가지고 있는 프로젝트에 대해서 질의를 하고자 하는경우
+            
+            질문: {question}
+        """
+
+
 class AgentService:
     def __init__(
             self,
             repository: ChunkRepository,
             embed: Callable[[str], list[float]],
-            query_to_llm: Callable[[str, str], str]
+            query_to_llm: Callable[[str], str]
     ):
         self.repository = repository
         self.embed = embed
@@ -157,51 +142,17 @@ class AgentService:
         return api_response
 
     def _route(self, question: str) -> RouteDecision:
-        normalized = _normalize_question(question=question)
-        directed_answer = _get_direct_answer(normalized)
-        if directed_answer:
-            return RouteDecision(
-                tool="direct",
-                routed_question=normalized,
-                reason="짧은 대화형 질문으로 판단",
-                direct_answer=directed_answer
-            )
-
-        stripped = _strip_greeting_prefix(normalized)
-        if not stripped:
-            return RouteDecision(
-                tool="direct",
-                routed_question=normalized,
-                reason="인사만 포함된 질문으로 판단",
-                direct_answer="안녕하세요. 질문을 주시면 바로 찾아보겠습니다."
-            )
-
-        if _is_repo_question(stripped):
-            return RouteDecision(
-                tool="search_repo",
-                routed_question=stripped,
-                reason="코드 위치/파일 탐색 질문으로 판단",
-                direct_answer=None
-            )
-
-        if _is_doc_question(stripped):
-            return RouteDecision(
-                tool="retrieve_docs",
-                routed_question=stripped,
-                reason="설명/요약 질문으로 판단",
-                direct_answer=None
-            )
-
+        prompt = _build_route_prompt(question)
+        routed = self.query_to_llm(prompt)
+        routed = _extract_markdown(routed)
+        routed_json = json.loads(routed)
         return RouteDecision(
-            tool="retrieve_docs",
-            routed_question=stripped,
-            reason="애매해서 retrieval 기본값 사용",
-            direct_answer=None
+            tool=routed_json["tool"],
+            routed_question=routed_json["routed_question"],
+            reason=routed_json["reason"],
+            direct_answer=routed_json["direct_answer"]
         )
 
-    # loader.load_vector_store, loader.search_chunks를 감싸서
-    # retrieve_docs(question)를 만들고,
-    # 반환값에 chunk_id/source_path/start/end/score를 붙여줘.
     def retrieve_docs(self, question: str) -> BedrockResponse:
         query_emb = self.embed(question)
         search_list = self.repository.search_similar(query_emb)
@@ -219,10 +170,7 @@ class AgentService:
             return response
 
         else:
-            doc_text = ''
-            for doc in search_list:
-                doc_text += doc.text
-            query_result = self.query_to_llm(doc_text, question)
-            # print(query_result[0]["text"])
+            prompt = _build_retrieve_prompt(search_list, question)
+            query_result = self.query_to_llm(prompt)
             response = BedrockResponse(answer=query_result, chunks=search_list)
             return response

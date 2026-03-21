@@ -63,8 +63,32 @@ class FakeEmbedder:
 
 
 class FakeLLMClient:
-    def query_to_llm(self, text: str, question: str) -> str:
-        return [{"text": "stubbed answer"}][0]["text"]
+    def query_to_llm(self, prompt: str) -> str:
+        result = ''
+        if "test_answer_routes_direct_question" in prompt:
+            result = json.dumps({
+                'tool': 'direct',
+                'routed_question': '',
+                'reason': '',
+                'direct_answer': '안녕하세요. 코드 위치 탐색과 문서 설명을 도와드릴 수 있습니다.',
+            })
+        elif 'test_answer_routes_repo_question' in prompt:
+            result = json.dumps({
+                'tool': 'search_repo',
+                'routed_question': 'test_answer_routes_repo_question',
+                'reason': '',
+                'direct_answer': '안녕하세요. 코드 위치 탐색과 문서 설명을 도와드릴 수 있습니다.',
+            })
+        elif '아래의 문서를 참고하여 답하라.' in prompt:
+            result = 'test_answer_routes_doc_question'
+        elif 'test_answer_routes_doc_question' in prompt:
+            result = json.dumps({
+                'tool': 'retrieve_docs',
+                'routed_question': 'test_answer_routes_doc_question',
+                'reason': '',
+                'direct_answer': 'stubbed answer',
+            })
+        return result
 
 
 @pytest.fixture

@@ -39,7 +39,7 @@ def test_answer_routes_repo_question():
         repository=FakeRepository(hits=hits)
     )
 
-    result = service.answer("토큰 갱신 로직은 어디에 있어?")
+    result = service.answer("test_answer_routes_repo_question")
     assert result.used_tool == "search_repo"
     assert result.sources
     assert result.sources[0].path == "app/auth/token_service.py"
@@ -52,7 +52,7 @@ def test_answer_routes_direct_question():
         query_to_llm=FakeLLMClient().query_to_llm,
         repository=FakeRepository(hits=hits)
     )
-    result = service.answer("안녕?")
+    result = service.answer("test_answer_routes_direct_question")
 
     assert result.used_tool == "direct"
     assert result.sources == []
@@ -78,11 +78,11 @@ def test_answer_routes_doc_question():
         repository=FakeRepository(hits=hits)
     )
 
-    result = service.answer("이 프로젝트에서 인증 로직과 리프레시토큰 로직에 대해서 설명해줘.")
+    result = service.answer("test_answer_routes_doc_question")
 
     assert result.used_tool == "retrieve_docs"
     assert result.sources[0].path == "app/auth/token_service.py"
-    assert result.answer == "stubbed answer"
+    assert result.answer == 'test_answer_routes_doc_question'
 
 
 def test_retrieve_docs_remove_duplicate():

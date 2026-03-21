@@ -16,4 +16,4 @@ def create_llm_client():
         service_name="bedrock-runtime",
         region_name=region_name,
     )
-    return LLMClient(client.invoke_model, model_id=os.getenv("BEDROCK_MODEL_ID"))
+    return LLMClient(client.invoke_model, model_id=os.getenv("BEDROCK_QUERY_MODEL_ID"))
