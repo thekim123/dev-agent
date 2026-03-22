@@ -20,7 +20,6 @@ class AgentResponse(BaseModel):
     reason: str
     sources: List[Source]
     answer: str
-    is_final: bool
 
 
 class BedrockResponse(BaseModel):

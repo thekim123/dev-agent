@@ -8,6 +8,7 @@ from app.repository.base import ChunkRepository
 from app.repository.models import ChunkSearchHit
 
 STOPWORDS = {"어디", "설명", "해줘", "해주세요", "무엇", "뭐", "찾아줘", "찾아", "관련", "있는", "인가", "이거"}
+MAX_ITERATIONS = 10
 
 
 def _build_snippet(text: str, limit: int = 220) -> str:
@@ -135,24 +136,24 @@ class AgentService:
     def answer(self, question: str) -> AgentResponse:
         agent_response = None
         route_decision = None
-        while True:
-            #  1. 도구 실행 → 결과 나옴
+
+        for _ in range(MAX_ITERATIONS):
             route_decision = self._route(question, agent_response, route_decision)
-            agent_response = self.execute_tools(route_decision)
-            # 4. is_final이면 끝
-            if route_decision.is_final:
+            if route_decision.is_final and agent_response is not None:
                 return agent_response
+            if route_decision.tool == "direct":
+                return AgentResponse(
+                    used_tool=route_decision.tool,
+                    reason=route_decision.reason,
+                    sources=[],
+                    answer=route_decision.direct_answer,
+                )
+            agent_response = self.execute_tools(route_decision)
+
+        # 일단은 마지막 답변 반환
+        return agent_response
 
     def execute_tools(self, route_decision: RouteDecision) -> AgentResponse:
-        if route_decision.tool == "direct":
-            return AgentResponse(
-                used_tool=route_decision.tool,
-                reason=route_decision.reason,
-                sources=[],
-                answer=route_decision.direct_answer,
-                is_final=True,
-            )
-
         if route_decision.tool == "search_repo":
             terms = _extract_terms(route_decision.routed_question)
             query_results = self.repository.search_by_term(terms)
@@ -162,7 +163,6 @@ class AgentService:
                 reason=route_decision.reason,
                 sources=sources,
                 answer=_build_answer(query_results),
-                is_final=False,
             )
 
         bedrock_response = self.retrieve_docs(route_decision.routed_question)
@@ -172,7 +172,6 @@ class AgentService:
                 reason=route_decision.reason,
                 sources=[],
                 answer="지금 가지고 있는 자료에서는 마땅한게 없네요.",
-                is_final=True,
             )
 
         top = bedrock_response.chunks[:3]
@@ -189,7 +188,6 @@ class AgentService:
             reason="문서 임베딩 검색 기반",
             sources=sources,
             answer=bedrock_response.answer,
-            is_final=False,
         )
         return api_response
 

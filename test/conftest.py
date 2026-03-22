@@ -71,6 +71,7 @@ class FakeLLMClient:
                 'routed_question': '',
                 'reason': '',
                 'direct_answer': '안녕하세요. 코드 위치 탐색과 문서 설명을 도와드릴 수 있습니다.',
+                'is_final': True,
             })
         elif 'test_answer_routes_repo_question' in prompt:
             result = json.dumps({
@@ -78,6 +79,7 @@ class FakeLLMClient:
                 'routed_question': 'test_answer_routes_repo_question',
                 'reason': '',
                 'direct_answer': '안녕하세요. 코드 위치 탐색과 문서 설명을 도와드릴 수 있습니다.',
+                'is_final': False,
             })
         elif '아래의 문서를 참고하여 답하라.' in prompt:
             result = 'test_answer_routes_doc_question'
@@ -87,6 +89,31 @@ class FakeLLMClient:
                 'routed_question': 'test_answer_routes_doc_question',
                 'reason': '',
                 'direct_answer': 'stubbed answer',
+                'is_final': False,
+            })
+        elif 'retrieve_no_docs_test' in prompt:
+            result = json.dumps({
+                'tool': 'retrieve_docs',
+                'routed_question': 'test_answer_routes_doc_question',
+                'reason': '',
+                'direct_answer': 'stubbed answer',
+                'is_final': True,
+            })
+        elif '원래 질문은' in prompt:
+            result = json.dumps({
+                'tool': 'direct',
+                'routed_question': '',
+                'reason': '',
+                'direct_answer': '',
+                'is_final': True,
+            })
+        elif 'retrieve_docs_remove_duplicate_test' in prompt:
+            result = json.dumps({
+                'tool': 'retrieve_docs',
+                'routed_question': 'test_answer_routes_doc_question',
+                'reason': '',
+                'direct_answer': 'stubbed answer',
+                'is_final': False,
             })
         return result
 

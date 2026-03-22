@@ -65,7 +65,7 @@ def test_answer_retrieve_no_docs():
         query_to_llm=FakeLLMClient().query_to_llm,
         repository=FakeRepository()
     )
-    result = service.answer("이 프로젝트에서 인증 로직과 리프레시토큰 로직에 대해서 설명해줘.")
+    result = service.answer("retrieve_no_docs_test")
     assert result.used_tool == "retrieve_docs"
     assert result.sources == []
     assert result.answer == '지금 가지고 있는 자료에서는 마땅한게 없네요.'
@@ -118,8 +118,8 @@ def test_retrieve_docs_remove_duplicate():
         query_to_llm=FakeLLMClient().query_to_llm,
         repository=FakeRepository(hits=test_hits)
     )
-    answer = service.answer("이 프로젝트에서 인증 로직과 리프레시토큰 로직에 대해서 설명해줘.")
+    answer = service.answer("retrieve_docs_remove_duplicate_test")
     assert answer.used_tool == "retrieve_docs"
     assert len(answer.sources) == 1
     assert answer.sources[0].path == "app/auth/token_service.py"
-    assert answer.answer == "stubbed answer"
+    assert answer.answer == "test_answer_routes_doc_question"

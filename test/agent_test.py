@@ -17,7 +17,7 @@ def test_agent_endpoint_returns_response_shape():
 
     response = client.post(
         "/agent",
-        json={"question": "토큰 갱신 로직은 어디에 있어?"}
+        json={"question": "retrieve_docs_remove_duplicate_test"}
     )
 
     assert response.status_code == 200
