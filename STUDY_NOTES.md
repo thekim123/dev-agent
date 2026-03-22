@@ -18,13 +18,19 @@
 - [x] LLM 응답의 마크다운 코드블록 문제 이해 (```json 감싸기)
 - [x] `_extract_markdown` 책임 위치 판단 → `LLMClient`가 아닌 호출 쪽(`service.py`)에서 처리
 - [x] `str` 불변성과 재바인딩 개념 확인
+- [x] agent loop 구조 설계 및 구현 (`while True` + `is_final` 탈출)
+- [x] `_build_route_prompt`와 confirm 프롬프트를 `_build_confirm_prompt`로 통합 (`agent_response: None` 분기)
+- [x] `RouteDecision`에 `is_final` 추가, `AgentResponse`에 `is_final` 추가
+- [x] `_json_to_route_decision` 파싱 함수 분리
+- [x] 미사용 import (`typing_inspection`) 제거
+- [x] 미사용 모델 (`ConfirmationResponse`) 정리
 
 ## 지금 해야 할 일
 
-### 다음 과제 후보
-- `_extract_markdown`을 `service.py`의 `_route`에 적용
-- `_route`의 JSON 파싱 실패 시 처리 방법 결정
-- agent loop 설계: 현재는 1회 호출 구조 → 다단계 실행, 중간 결과 기반 재판단
+### 다음 과제
+- agent loop에 max iteration 제한 추가
+- `direct` 케이스가 루프에서 불필요한 LLM 호출을 하는 문제 정리
+- 테스트 코드를 agent loop 구조에 맞게 수정
 
 ## 나중에 할 일
 - retrieval threshold 조정
@@ -33,14 +39,11 @@
 
 ## 이번 세션에서 정리된 핵심
 
-### 1. 지금 만든 것은 agent라기보다 retrieval 시스템이다
-- 현재 구조는 `rule-based router + OpenSearch retrieval + answer generation`에 가깝다.
-- 아직 진짜 agent라고 부르려면 부족하다.
-- 부족한 요소:
-  - tool 선택
-  - 다단계 실행
-  - 중간 결과를 보고 다음 행동을 바꾸는 loop
-  - 상태 관리
+### 1. agent loop의 핵심 구조
+- `_route → execute_tools → confirm → (반복 or 종료)` 사이클
+- 첫 호출과 이후 호출을 하나의 프롬프트 함수로 통합할 수 있다 (`agent_response`가 `None`이면 첫 호출)
+- `is_final`은 LLM이 판단한다 (도구가 하드코딩하는 게 아님)
+- 역할이 다른 데이터는 모델을 분리해야 한다 — 그런데 결과적으로 같은 필드가 필요하면 하나로 합치는 게 맞을 수도 있다 (`RouteDecision` + `is_final`)
 
 ### 2. OpenSearch 적재와 조회는 책임을 분리해야 한다
 - `ChunkRepository`는 조회 전용 read port다.
@@ -108,7 +111,8 @@
 - `app/repository`
   - OpenSearch 조회
 - `app/agent`
-  - 라우팅
+  - 라우팅 + confirm (agent loop)
+  - tool 실행 (`execute_tools`)
   - Source 매핑
   - answer 조합
 
@@ -117,3 +121,5 @@
 - `if not []`는 `True`다. 빈 리스트는 falsy.
 - 테스트용 fake 객체는 데이터를 주입받게 만들면 케이스마다 재사용할 수 있다.
 - YAGNI: 지금 안 쓰이면 옮기지 않는다.
+- 모델을 분리할지 합칠지는 "역할이 다른가?"로 시작하되, 필드가 동일하면 합치는 게 나을 수 있다.
+- 함수 파라미터에 `None` 기본값을 주면 첫 호출/이후 호출을 하나의 함수로 처리할 수 있다.
