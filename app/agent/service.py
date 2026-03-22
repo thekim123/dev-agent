@@ -56,8 +56,13 @@ def _build_retrieve_prompt(search_list, question):
     return query_text
 
 
-def _build_route_prompt(question: str) -> str:
-    return f"""
+def _build_confirm_prompt(
+        question: str,
+        agent_response: AgentResponse,
+        route_decision: RouteDecision
+) -> str:
+    if agent_response is None:
+        return f"""
             아래의 도구중 질문에 가장 알맞는 도구를 골라서 json으로 반환하라.
             고른 도구의 이름은 tool에 적는다.
             도구를 고른 이유는 reason항목에 적는다.
@@ -71,7 +76,8 @@ def _build_route_prompt(question: str) -> str:
                 \"tool\": \"\",
                 \"routed_question\": \"\",
                 \"reason\": \"\",
-                \"direct_answer\": \"\"
+                \"direct_answer\": \"\",
+                \"is_final\": \"답변이 완료된지 여부\",
             }}
             
             당신이 사용할 수 있는 도구는 아래와 같다.
@@ -81,6 +87,38 @@ def _build_route_prompt(question: str) -> str:
             
             질문: {question}
         """
+
+    confirm_prompt = f"""
+        원래 질문은 '{question}'이었고, 거기에 대해서 '{route_decision.routed_question}'라고 물어봤어.
+        그리고 답변으로는 아래와 같이 나왔어. 
+        
+        {agent_response.answer}
+        
+        이 답변이 충분한지에 대해서 아래와 같은 json으로 응답해줘.
+            {{
+                \"tool\": \"사용해야되는 도구 이름\",
+                \"routed_question\": \"완료되지 않았다면 다음에 뭐할지\",
+                \"reason\": \"그렇게 생각한 이유\",
+                \"direct_answer\": \"tool이 direct일 경우에는 답변\",
+                \"is_final\": \"답변이 완료된지 여부\",
+            }}
+            
+            당신이 사용할 수 있는 도구는 아래와 같다.
+            direct: 현재 가지고 있는 프로젝트에 대한 질문이 아닌 경우
+            search_repo: 현재 가지고 있는 프로젝트 중에서 코드의 위치를 파악하는 도구
+            retrieve_docs: 현재 가지고 있는 프로젝트에 대해서 질의를 하고자 하는경우
+    """
+    return confirm_prompt
+
+
+def _json_to_route_decision(routed_json: dict) -> RouteDecision:
+    return RouteDecision(
+        tool=routed_json["tool"],
+        routed_question=routed_json["routed_question"],
+        reason=routed_json["reason"],
+        direct_answer=routed_json["direct_answer"],
+        is_final=routed_json["is_final"]
+    )
 
 
 class AgentService:
@@ -95,13 +133,24 @@ class AgentService:
         self.query_to_llm = query_to_llm
 
     def answer(self, question: str) -> AgentResponse:
-        route_decision = self._route(question)
+        agent_response = None
+        route_decision = None
+        while True:
+            #  1. 도구 실행 → 결과 나옴
+            route_decision = self._route(question, agent_response, route_decision)
+            agent_response = self.execute_tools(route_decision)
+            # 4. is_final이면 끝
+            if route_decision.is_final:
+                return agent_response
+
+    def execute_tools(self, route_decision: RouteDecision) -> AgentResponse:
         if route_decision.tool == "direct":
             return AgentResponse(
                 used_tool=route_decision.tool,
                 reason=route_decision.reason,
                 sources=[],
-                answer=route_decision.direct_answer
+                answer=route_decision.direct_answer,
+                is_final=True,
             )
 
         if route_decision.tool == "search_repo":
@@ -112,7 +161,8 @@ class AgentService:
                 used_tool=route_decision.tool,
                 reason=route_decision.reason,
                 sources=sources,
-                answer=_build_answer(query_results)
+                answer=_build_answer(query_results),
+                is_final=False,
             )
 
         bedrock_response = self.retrieve_docs(route_decision.routed_question)
@@ -121,7 +171,8 @@ class AgentService:
                 used_tool=route_decision.tool,
                 reason=route_decision.reason,
                 sources=[],
-                answer="지금 가지고 있는 자료에서는 마땅한게 없네요."
+                answer="지금 가지고 있는 자료에서는 마땅한게 없네요.",
+                is_final=True,
             )
 
         top = bedrock_response.chunks[:3]
@@ -137,21 +188,21 @@ class AgentService:
             used_tool="retrieve_docs",
             reason="문서 임베딩 검색 기반",
             sources=sources,
-            answer=bedrock_response.answer
+            answer=bedrock_response.answer,
+            is_final=False,
         )
         return api_response
 
-    def _route(self, question: str) -> RouteDecision:
-        prompt = _build_route_prompt(question)
-        routed = self.query_to_llm(prompt)
-        routed = _extract_markdown(routed)
-        routed_json = json.loads(routed)
-        return RouteDecision(
-            tool=routed_json["tool"],
-            routed_question=routed_json["routed_question"],
-            reason=routed_json["reason"],
-            direct_answer=routed_json["direct_answer"]
-        )
+    def _route(
+            self,
+            question: str,
+            agent_response: AgentResponse | None = None,
+            route_decision: RouteDecision | None = None
+    ) -> RouteDecision:
+        prompt = _build_confirm_prompt(question, agent_response, route_decision)
+        query_result = self.query_to_llm(prompt)
+        routed = _extract_markdown(query_result)
+        return _json_to_route_decision(json.loads(routed))
 
     def retrieve_docs(self, question: str) -> BedrockResponse:
         query_emb = self.embed(question)
