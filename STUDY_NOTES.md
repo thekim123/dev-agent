@@ -24,13 +24,18 @@
 - [x] `_json_to_route_decision` 파싱 함수 분리
 - [x] 미사용 import (`typing_inspection`) 제거
 - [x] 미사용 모델 (`ConfirmationResponse`) 정리
+- [x] `AgentResponse`에서 `is_final` 제거 → 루프 탈출은 `RouteDecision.is_final`로 통일
+- [x] `answer` 루프에서 confirm과 첫 라우팅 구분 (`agent_response is not None` 체크)
+- [x] `for range(MAX_ITERATIONS)` 무한루프 방지
+- [x] `FakeLLMClient`에 `is_final` 필드 추가 + confirm 분기(`'원래 질문은'`) 추가
+- [x] confirm에서 `tool: 'direct'` 반환 시 이전 결과가 버려지는 버그 수정
 
 ## 지금 해야 할 일
 
 ### 다음 과제
-- agent loop에 max iteration 제한 추가
-- `direct` 케이스가 루프에서 불필요한 LLM 호출을 하는 문제 정리
-- 테스트 코드를 agent loop 구조에 맞게 수정
+- 루프가 2번 이상 도는 멀티스텝 테스트 작성
+- retrieval threshold (`score < 0.4`) 조정 및 검색 결과 품질 확인
+- FastAPI import 구조에서 eager dependency 정리
 
 ## 나중에 할 일
 - retrieval threshold 조정
@@ -123,3 +128,6 @@
 - YAGNI: 지금 안 쓰이면 옮기지 않는다.
 - 모델을 분리할지 합칠지는 "역할이 다른가?"로 시작하되, 필드가 동일하면 합치는 게 나을 수 있다.
 - 함수 파라미터에 `None` 기본값을 주면 첫 호출/이후 호출을 하나의 함수로 처리할 수 있다.
+- 테스트가 통과해도 "의도대로 통과"인지 확인해야 한다 — fake가 MAX_ITERATIONS까지 루프를 돌고 빠져나오는 식으로 우연히 통과할 수 있다.
+- fake에 호출 횟수 추적을 넣으면 이런 류의 버그를 잡을 수 있다.
+- `is_final` 같은 판단 주체는 한 곳으로 통일해야 한다 — 도구가 정하는 것과 LLM이 정하는 것이 섞이면 혼란.
