@@ -46,13 +46,37 @@
 - [x] threshold 0.4 → 0.55 변경 (실험 근거 기반)
 - [x] top-k 결과 내 개별 score 필터링 추가 (리스트 컴프리헨션)
 - [x] threshold 경계 테스트 작성 (결과는 있지만 score가 낮은 케이스)
+- [x] `repository/factory.py`, `llm/factory.py`에서 eager import → lazy import 전환
+  - Python의 `import`는 Java와 달리 모듈 코드를 즉시 실행한다는 점 이해
+  - 컴파일 언어(Java)는 import가 이름 참조 선언일 뿐이지만, 인터프리터 언어(Python)는 import = 코드 실행
+  - 무거운 모듈(프로젝트 내부 모듈, 외부 라이브러리)은 실제 필요한 분기 안에서 import해야 한다
+  - 표준 라이브러리(`os` 등)는 가벼우니 top-level에 둬도 무방
+
+- [x] LangGraph와 현재 agent loop의 대응 관계 정리
+  - `_route()` → Router 노드 (LLM이 다음 행동 결정)
+  - `execute_tools()` → Tool 노드 (선택된 도구 실행)
+  - `RouteDecision` → State (노드 간 전달되는 상태)
+  - `is_final` 체크 → Conditional Edge (분기 판단)
+  - `MAX_ITERATIONS` → recursion_limit (무한루프 방지)
+  - `answer()` → Graph.invoke() (그래프 실행 진입점)
+  - 도구 3개 + 단순 분기인 지금 규모에서는 프레임워크 없이 직접 만든 게 적절
+  - 노드가 많아지고 병렬 실행/상태 저장이 필요해질 때 LangGraph 도입 검토
+
+- [x] `.md` 문서 노출 정책 결정 및 구현
+  - `search_repo`(코드 위치 탐색)에서는 `.md` 제외, `retrieve_docs`(문서 검색)에서는 포함
+  - `JsonChunkRepository.search_by_term`: `source_path.endswith('.md')` → `continue`
+  - `OpenSearchChunkRepository._build_term_query`: `must_not` + `wildcard` 로 쿼리 레벨에서 제외
+  - service가 아닌 repository 쿼리에서 필터링하는 게 맞다 (top_k 어그러짐 방지)
+  - `any()` 제너레이터 표현식으로 테스트 간소화 학습
 
 ## 지금 해야 할 일
 
-### 다음 과제
-- FastAPI import 구조에서 eager dependency 정리
-- `.md` 문서 노출 정책 결정
-- LangChain/LangGraph 내부 구조와 현재 agent loop의 대응 관계 이해
+### 다음 과제 (순서대로)
+1. ingestion 파이프라인 개선 — 통째로 자르는 chunking을 함수/클래스 단위로 개선
+2. `app/git` 모듈 구현 — git diff 기반 변경분만 재인덱싱 (diff_capture, diff_parser, index_diff)
+3. 에이전트에 새 도구 추가 — 예: `explain_code` (코드 조각을 찾아 설명)
+
+순서 근거: chunking 개선 → 그 위에 incremental indexing → 인덱스가 좋아진 상태에서 새 도구
 
 ## 이번 세션에서 정리된 핵심
 

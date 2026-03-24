@@ -28,10 +28,33 @@
 
 - 리스트 컴프리헨션으로 조건 필터링하는 패턴을 배웠다 (`[x for x in lst if condition]`).
 
+### Python import 모델 이해
+
+- Python의 `import`가 Java의 `import`와 근본적으로 다르다는 점을 이해했다.
+  - Java: 컴파일 타임 이름 참조. `new` 전까지 클래스 로딩 안 됨.
+  - Python: 인터프리터가 `import`문을 만나면 해당 모듈을 즉시 실행.
+- 이 차이 때문에 factory에서 lazy import가 필요하다는 판단을 직접 하고 적용했다.
+- "Spring이 해주던 걸 Python에서는 직접 해야 한다"는 관점에서 DI 컨테이너의 역할을 재인식했다.
+
+### LangGraph 대응 관계 이해
+
+- 직접 만든 agent loop의 각 요소가 LangGraph의 어떤 개념에 대응되는지 이해했다.
+- "지금 규모에서는 프레임워크가 과설계"라는 판단을 트레이드오프 관점에서 받아들였다.
+- 프레임워크 도입 시점은 복잡도(노드 수, 병렬 실행, 상태 저장 필요성)가 기준이라는 점을 인식했다.
+
+### 검색 정책 설계 감각
+
+- "도구마다 검색 대상이 달라야 한다"는 판단을 스스로 도출했다 (search_repo에서 .md 제외, retrieve_docs에서 포함).
+- 필터링 위치를 service가 아닌 repository 쿼리 레벨로 잡아야 한다는 판단을 top_k 근거로 이해했다.
+- OpenSearch `must_not` + `wildcard`로 쿼리 레벨 필터링을 적용했다.
+
+### Python 감각 변화 (추가)
+
+- `any()` + 제너레이터 표현식으로 반복 검증을 한 줄로 표현하는 패턴을 배웠다.
+
 ### 남은 교육 포인트
 
-- LangChain/LangGraph 같은 프레임워크의 내부 구조와 지금 만든 것의 대응 관계 이해
-- FastAPI import 구조에서 eager dependency 문제 이해
+- (다음 방향 논의 필요)
 
 ## 2026-03-22 평가 업데이트
 
