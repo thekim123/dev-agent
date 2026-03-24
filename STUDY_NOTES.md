@@ -30,10 +30,21 @@
 - [x] `FakeLLMClient`에 `is_final` 필드 추가 + confirm 분기(`'원래 질문은'`) 추가
 - [x] confirm에서 `tool: 'direct'` 반환 시 이전 결과가 버려지는 버그 수정
 
+## 2026-03-24 완료한 작업
+- [x] 서비스/컨트롤러 테스트 책임 분리
+  - 컨트롤러 테스트(`agent_test.py`): 응답 shape + HTTP 상태코드만 검증
+  - 서비스 테스트(`test_service.py`): `used_tool`, `call_count`, 분기 검증
+- [x] `FakeLLMClient` 인스턴스를 변수로 분리하여 `call_count` 접근 가능하게 수정
+- [x] 기존 서비스 테스트에 `call_count` assert 추가 (의도대로 통과 검증)
+- [x] `test_answer_loops_max` 작성 — `[pattern] * 20`으로 answers 생성, `MAX_ITERATIONS`에서 루프 종료 검증
+- [x] `test_answer_routes_repo_question` fake 수정 — agent loop 구조에 맞게 answers 갱신
+- [x] `agent_test.py`에서 중복 테스트 제거 (`test_agent_endpoint_retrieve_docs` → shape 중복)
+- [x] Python에서 getter 대신 필드 직접 접근이 관례라는 점 학습 ("We're all consenting adults here")
+- [x] 리스트 `*` 연산자로 반복 패턴 생성하는 방법 학습
+
 ## 지금 해야 할 일
 
 ### 다음 과제
-- 루프가 2번 이상 도는 멀티스텝 테스트 작성
 - retrieval threshold (`score < 0.4`) 조정 및 검색 결과 품질 확인
 - FastAPI import 구조에서 eager dependency 정리
 
