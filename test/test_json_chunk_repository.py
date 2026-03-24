@@ -13,3 +13,4 @@ def test_search_by_terms_returns_ranked_results(json_repo):
     hits = json_repo.search_by_term(["token", "refresh"])
     assert hits
     assert hits[0].source_path == "app/auth/token_service.py"
+    assert not any(hit.source_path.endswith(".md") for hit in hits)

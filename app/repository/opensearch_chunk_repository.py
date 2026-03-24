@@ -54,6 +54,9 @@ def _build_term_query(
         "query": {
             "bool": {
                 "should": should_clauses,
+                "must_not": [
+                    {"wildcard": {"source_path": "*.md"}},
+                ],
                 "minimum_should_match": 1
             }
         }

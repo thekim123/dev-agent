@@ -60,6 +60,8 @@ class JsonChunkRepository(ChunkRepository):
     def search_by_term(self, terms, top_k=5) -> list[ChunkSearchHit]:
         results = []
         for chunk in self.chunks:
+            if chunk.source_path.endswith('.md') :
+                continue
             score = 0
             path = chunk.source_path.lower()
             text = chunk.text.lower()
