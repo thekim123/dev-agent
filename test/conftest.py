@@ -80,7 +80,7 @@ def fake_repository():
     hits = [
         ChunkSearchHit(
             source_path="app/auth/token_service.py",
-            score=10.0,
+            score=0.90,
             start=1,
             end=1,
             text="token refresh logic_a",
@@ -88,7 +88,7 @@ def fake_repository():
         ),
         ChunkSearchHit(
             source_path="app/auth/token_service.py",
-            score=9.0,
+            score=1.0,
             start=1,
             end=1,
             text="token refresh logic_b",
@@ -96,12 +96,20 @@ def fake_repository():
         ),
         ChunkSearchHit(
             source_path="app/auth/token_service.py",
-            score=5.0,
+            score=0.35,
             start=1,
             end=1,
             text="token refresh logic_c",
             chunk_id="c"
-        )
+        ),
+        ChunkSearchHit(
+            source_path="app/auth/token_service.py",
+            score=0.45,
+            start=12,
+            end=13,
+            text="token refresh logic_ddddd",
+            chunk_id="d"
+        ),
     ]
     return FakeRepository(hits=hits)
 

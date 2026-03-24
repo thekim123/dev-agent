@@ -24,6 +24,7 @@ def build_index_body(dimension: int) -> dict:
                 "end": {"type": "integer"},
                 "embedding": {
                     "type": "knn_vector",
+                    "space_type": "cosinesimil",
                     "dimension": dimension
                 }
             }

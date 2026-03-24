@@ -90,6 +90,31 @@ def test_answer_retrieve_no_docs():
     assert fake_llm_client.call_count == 2
 
 
+def test_answer_filter_55_under_docs(fake_repository):
+    answers = [
+                  json.dumps({
+                      'tool': 'retrieve_docs',
+                      'routed_question': 'test_answer_routes_doc_question',
+                      'reason': '',
+                      'direct_answer': 'stubbed answer',
+                      'is_final': True,
+                  }),
+                  '지금 가지고 있는 자료에서는 마땅한게 없네요.'
+              ] * 2
+
+    fake_llm_client = FakeLLMClient(answers)
+    service = AgentService(
+        embed=FakeEmbedder().embed,
+        query_to_llm=fake_llm_client.query_to_llm,
+        repository=fake_repository
+    )
+    result = service.answer("retrieve_no_docs_test")
+    assert result.used_tool == "retrieve_docs"
+    assert result.sources[0].score == 0.9
+    assert result.answer == '지금 가지고 있는 자료에서는 마땅한게 없네요.'
+    assert fake_llm_client.call_count == 3
+
+
 def test_answer_routes_doc_question(fake_repository):
     answers = [
         json.dumps({

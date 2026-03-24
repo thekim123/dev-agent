@@ -211,7 +211,7 @@ class AgentService:
                 chunks=[]
             )
 
-        if search_list[0].score < 0.4:
+        if search_list[0].score < 0.55:
             response = BedrockResponse(
                 answer='지금 가지고 있는 자료에서는 마땅한 데이터가 없네요.... 잘 모르겠어요....',
                 chunks=[]
@@ -219,6 +219,7 @@ class AgentService:
             return response
 
         else:
+            search_list = [item for item in search_list if item.score > 0.55]
             prompt = _build_retrieve_prompt(search_list, question)
             query_result = self.query_to_llm(prompt)
             response = BedrockResponse(answer=query_result, chunks=search_list)

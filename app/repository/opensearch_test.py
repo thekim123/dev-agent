@@ -1,11 +1,13 @@
 import json
 
 import httpx
+from dotenv import load_dotenv
 
+from app.llm.embedder import Embedder
 from app.repository.base import ChunkSearchHit
 
 HOST = "http://localhost:9200"
-INDEX = "code_chunks_demo"
+INDEX = "code_chunks"
 
 
 def build_index_body(dimension: int) -> dict:
@@ -36,6 +38,7 @@ def build_index_body(dimension: int) -> dict:
 def build_knn_query(query_vector: list[float], top_k: int) -> dict:
     return {
         "size": top_k,
+        "_source": ["chunk_id", "source_path", "text", "start", "end"],
         "query": {
             "knn": {
                 "embedding": {
@@ -87,6 +90,7 @@ def build_term_query(terms: list[str], top_k: int) -> dict:
 
     return {
         "size": top_k,
+        "_source": ["chunk_id", "source_path", "text", "start", "end"],
         "query": {
             "bool": {
                 "should": should_clauses,
@@ -156,24 +160,26 @@ docs = [
 ]
 
 if __name__ == "__main__":
+    load_dotenv()
+    embedder = Embedder()
+    query_embed = embedder.embed('리그오브레전드에서 애쉬는 뭐지?')
     with httpx.Client(base_url=HOST, timeout=5.0) as client:
-
         search_response = client.post(
             f"/{INDEX}/_search",
-            json=build_knn_query([1.0, 0.0], top_k=2),
+            json=build_knn_query(query_embed, top_k=100),
         )
         search_response.raise_for_status()
-        # print(json.dumps(search_response.json(), indent=2, ensure_ascii=False))
+        print(json.dumps(search_response.json(), indent=2, ensure_ascii=False))
 
-        term_response = client.post(
-            f"/{INDEX}/_search",
-            json=build_term_query(["token", "refresh"], top_k=2),
-        )
-        term_response.raise_for_status()
-        result_list = parse_term_hits(term_response.json())
-        print(result_list)
-        print()
-        print(json.dumps(term_response.json(), indent=2, ensure_ascii=False))
-
-        knn_results = parse_knn_hits(search_response.json())
+        # term_response = client.post(
+        #     f"/{INDEX}/_search",
+        #     json=build_term_query(["token", "refresh"], top_k=100),
+        # )
+        # term_response.raise_for_status()
+        # result_list = parse_term_hits(term_response.json())
+        # print(result_list)
+        # print()
+        # print(json.dumps(term_response.json(), indent=2, ensure_ascii=False))
+        #
+        # knn_results = parse_knn_hits(search_response.json())
         # print(json.dumps(knn_results, indent=2, ensure_ascii=False))
