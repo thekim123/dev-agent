@@ -41,17 +41,18 @@
 - [x] `agent_test.py`에서 중복 테스트 제거 (`test_agent_endpoint_retrieve_docs` → shape 중복)
 - [x] Python에서 getter 대신 필드 직접 접근이 관례라는 점 학습 ("We're all consenting adults here")
 - [x] 리스트 `*` 연산자로 반복 패턴 생성하는 방법 학습
+- [x] `space_type: cosinesimil` 추가 — l2 기본값에서 전환, 점수 분포 개선
+- [x] 실제 검색 점수 분포 실험 (관련/무관 질문별 score 비교)
+- [x] threshold 0.4 → 0.55 변경 (실험 근거 기반)
+- [x] top-k 결과 내 개별 score 필터링 추가 (리스트 컴프리헨션)
+- [x] threshold 경계 테스트 작성 (결과는 있지만 score가 낮은 케이스)
 
 ## 지금 해야 할 일
 
 ### 다음 과제
-- retrieval threshold (`score < 0.4`) 조정 및 검색 결과 품질 확인
 - FastAPI import 구조에서 eager dependency 정리
-
-## 나중에 할 일
-- retrieval threshold 조정
 - `.md` 문서 노출 정책 결정
-- FastAPI import 구조에서 eager dependency 정리
+- LangChain/LangGraph 내부 구조와 현재 agent loop의 대응 관계 이해
 
 ## 이번 세션에서 정리된 핵심
 
