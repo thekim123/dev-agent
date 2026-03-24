@@ -3,9 +3,11 @@ import json
 import pytest
 from starlette.testclient import TestClient
 
+from app.repository.base import ChunkRepository
 from app.agent.service import AgentService
 from app.main import app, get_agent_service
 from app.repository.json_chunk_repository import JsonChunkRepository
+from app.repository.models import ChunkSearchHit
 from app.repository.opensearch_chunk_repository import OpenSearchChunkRepository
 
 
@@ -63,69 +65,100 @@ class FakeEmbedder:
 
 
 class FakeLLMClient:
+    def __init__(self, answers: list[str]):
+        self.call_count = 0
+        self.answers = answers
+
     def query_to_llm(self, prompt: str) -> str:
-        result = ''
-        if "test_answer_routes_direct_question" in prompt:
-            result = json.dumps({
-                'tool': 'direct',
-                'routed_question': '',
-                'reason': '',
-                'direct_answer': '안녕하세요. 코드 위치 탐색과 문서 설명을 도와드릴 수 있습니다.',
-                'is_final': True,
-            })
-        elif 'test_answer_routes_repo_question' in prompt:
-            result = json.dumps({
-                'tool': 'search_repo',
-                'routed_question': 'test_answer_routes_repo_question',
-                'reason': '',
-                'direct_answer': '안녕하세요. 코드 위치 탐색과 문서 설명을 도와드릴 수 있습니다.',
-                'is_final': False,
-            })
-        elif '아래의 문서를 참고하여 답하라.' in prompt:
-            result = 'test_answer_routes_doc_question'
-        elif 'test_answer_routes_doc_question' in prompt:
-            result = json.dumps({
-                'tool': 'retrieve_docs',
-                'routed_question': 'test_answer_routes_doc_question',
-                'reason': '',
-                'direct_answer': 'stubbed answer',
-                'is_final': False,
-            })
-        elif 'retrieve_no_docs_test' in prompt:
-            result = json.dumps({
-                'tool': 'retrieve_docs',
-                'routed_question': 'test_answer_routes_doc_question',
-                'reason': '',
-                'direct_answer': 'stubbed answer',
-                'is_final': True,
-            })
-        elif '원래 질문은' in prompt:
-            result = json.dumps({
-                'tool': 'direct',
-                'routed_question': '',
-                'reason': '',
-                'direct_answer': '',
-                'is_final': True,
-            })
-        elif 'retrieve_docs_remove_duplicate_test' in prompt:
-            result = json.dumps({
-                'tool': 'retrieve_docs',
-                'routed_question': 'test_answer_routes_doc_question',
-                'reason': '',
-                'direct_answer': 'stubbed answer',
-                'is_final': False,
-            })
+        result = self.answers[self.call_count]
+        self.call_count += 1
         return result
 
 
 @pytest.fixture
-def client(json_repo):
+def fake_repository():
+    hits = [
+        ChunkSearchHit(
+            source_path="app/auth/token_service.py",
+            score=10.0,
+            start=1,
+            end=1,
+            text="token refresh logic_a",
+            chunk_id="a"
+        ),
+        ChunkSearchHit(
+            source_path="app/auth/token_service.py",
+            score=9.0,
+            start=1,
+            end=1,
+            text="token refresh logic_b",
+            chunk_id="b"
+        ),
+        ChunkSearchHit(
+            source_path="app/auth/token_service.py",
+            score=5.0,
+            start=1,
+            end=1,
+            text="token refresh logic_c",
+            chunk_id="c"
+        )
+    ]
+    return FakeRepository(hits=hits)
+
+
+class FakeRepository(ChunkRepository):
+    def __init__(self, hits: list[ChunkSearchHit] = None):
+        self.hits = hits or []
+
+    def search_similar(self, query_embedding, top_k=3) -> list[ChunkSearchHit]:
+        if len(self.hits) == 0:
+            return []
+        return self.hits
+
+    def search_by_term(self, terms, top_k=5) -> list[ChunkSearchHit]:
+        if len(self.hits) == 0:
+            return []
+        return self.hits
+
+    def count(self):
+        return 1
+
+
+@pytest.fixture
+def client(fake_repository: FakeRepository):
+    answers = [
+        json.dumps({
+            'tool': 'retrieve_docs',
+            'routed_question': 'test_answer_routes_doc_question',
+            'reason': '',
+            'direct_answer': 'stubbed answer',
+            'is_final': False,
+        }),
+        'test_answer_routes_doc_question',
+        json.dumps({
+            'tool': 'retrieve_docs',
+            'routed_question': 'test_answer_routes_doc_question',
+            'reason': '',
+            'direct_answer': 'stubbed answer',
+            'is_final': False,
+        }),
+        'test_answer_routes_doc_question',
+        json.dumps({
+            'tool': 'retrieve_docs',
+            'routed_question': 'test_answer_routes_doc_question',
+            'reason': '',
+            'direct_answer': 'stubbed answer',
+            'is_final': True,
+        })
+    ]
     fake_embedder = FakeEmbedder()
-    fake_llm_client = FakeLLMClient()
+    fake_llm_client = FakeLLMClient(answers)
+
+    fake_repository = fake_repository
 
     def override_get_agent_service():
         return AgentService(
-            repository=json_repo,
+            repository=fake_repository,
             embed=fake_embedder.embed,
             query_to_llm=fake_llm_client.query_to_llm,
         )
