@@ -1,13 +1,17 @@
+from __future__ import annotations
 from functools import lru_cache
+from typing import TYPE_CHECKING
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException
 
 from app.agent.dto import AgentResponse, AgentRequest
 from app.agent.service import AgentService
-from app.llm.embedder import Embedder
 from app.llm.factory import create_embedder, create_llm_client
 from app.repository.factory import create_chunk_repository
+
+if TYPE_CHECKING:
+    from app.llm.embedder import Embedder
 
 load_dotenv()
 app = FastAPI()

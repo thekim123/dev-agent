@@ -1,0 +1,99 @@
+- id: q01
+  question: "일반 로그인 요청은 어느 필터가 처리해?"
+  answer_files: [ "backend/java/com/boram/look/global/security/authentication/CustomUsernamePasswordLoginFilter.java" ]
+- id: q02
+  question: "로그인 성공 후 access/refresh 토큰 발급은 어디서 처리 돼?"
+  answer_files: [
+    "backend/java/com/boram/look/global/security/authentication/CustomAuthenticationSuccessHandler.java",
+    "backend/java/com/boram/look/global/security/JwtProvider.java"
+  ]
+- id: q03
+  question: "OAuth 로그인 성공 후 내부 JWT 생성은 어느 파일이 담당
+  해?"
+  answer_files: [
+    "backend/java/com/boram/look/global/security/oauth/CustomOAuth2LoginSuccessHandler.java",
+    "backend/java/com/boram/look/global/security/JwtProvider.java"
+  ]
+- id: q04
+  question: "리프레시 토큰 재발급 검증은 어느 필터가 담당해?"
+  answer_files: [
+    "backend/java/com/boram/look/global/security/reissue/TokenReissueFilter.java"
+  ]
+- id: q05
+  question: "Authorization Bearer 토큰 검증과 SecurityContext 주입은 어디서 해?"
+  answer_files: [ "backend/java/com/boram/look/global/security/authorization/JwtAuthorizationFilter.java" ]
+- id: q06
+  question: "이메일 인증 코드 발급과 검증은 어느 서비스가 담당해?"
+  answer_files: [ "backend/java/com/boram/look/service/auth/EmailVerificationService.java" ]
+- id: q07
+  question: "현재~24시간 날씨 조회 API는 어디서 처리돼?"
+  answer_files: [ "backend/java/com/boram/look/api/controller/WeatherController.java" ]
+- id: q08
+  question: "날씨 데이터를 한 응답 DTO로 조합하는 곳은 어디야?"
+  answer_files: [ "backend/java/com/boram/look/service/weather/WeatherFacade.java" ]
+- id: q09
+  question: "단기예보 정기 수집과 캐시 갱신은 어느 스케줄러가 담당해?"
+  answer_files: [ "backend/java/com/boram/look/service/weather/forecast/ForecastScheduler.java" ]
+- id: q10
+  question: "코디 추천 요청은 어느 컨트롤러에서 받아?"
+  answer_files: [ "backend/java/com/boram/look/api/controller/OutfitController.java" ]
+- id: q11
+  question: "날씨, 이벤트 유형, 성별 조건을 합쳐 코디를 매칭하는 곳은 어디야?"
+  answer_files: [
+    "backend/java/com/boram/look/service/outfit/OutfitFacade.java",
+    "backend/java/com/boram/look/service/outfit/OutfitService.java"
+  ]
+- id: q12
+  question: "온도 범위와 이벤트 유형 목록 조회는 어디서 처리돼?"
+  answer_files: [
+    "backend/java/com/boram/look/api/controller/OutfitConditionController.java",
+    "backend/java/com/boram/look/service/outfit/OutfitConditionService.java"
+  ]
+- id: q13
+  question: "회원가입은 어느 API와 서비스가 처리해?"
+  answer_files: [
+    "backend/java/com/boram/look/api/controller/UserController.java",
+    "backend/java/com/boram/look/service/user/UserService.java"
+  ]
+- id: q14
+  question: "비밀번호 변경은 어디를 보면 돼?"
+  answer_files: [
+    "backend/java/com/boram/look/api/controller/UserController.java",
+    "backend/java/com/boram/look/service/user/UserService.java"
+  ]
+- id: q15
+  question: "회원 탈퇴 시 삭제 이력을 저장하는 로직은 어디야?"
+  answer_files: [
+    "backend/java/com/boram/look/service/user/UserService.java",
+    "backend/java/com/boram/look/domain/user/entity/UserDeleteHistory.java"
+  ]
+- id: q16
+  question: "북마크 추가와 삭제는 어느 컨트롤러와 서비스가 담당해?"
+  answer_files: [
+    "backend/java/com/boram/look/api/controller/BookmarkController.java",
+    "backend/java/com/boram/look/service/user/BookmarkService.java"
+  ]
+- id: q17
+  question: "알림 설정 저장 후 Quartz Job을 다시 등록하는 곳은 어디야?"
+  answer_files: [
+    "backend/java/com/boram/look/api/controller/NotificationController.java",
+    "backend/java/com/boram/look/service/notification/UserNotificationSettingService.java",
+    "backend/java/com/boram/look/service/notification/NotificationSchedulerService.java"
+  ]
+- id: q18
+  question: "실제 푸시 알림 발송 작업은 어떤 Job이 실행해?"
+  answer_files: [ "backend/java/com/boram/look/service/notification/SendNotificationJob.java" ]
+- id: q19
+  question: "좌표 기반 지역 조회는 어디서 처리돼?"
+  answer_files: [
+    "backend/java/com/boram/look/api/controller/RegionController.java",
+    "backend/java/com/boram/look/service/region/RegionService.java",
+    "backend/java/com/boram/look/service/region/RegionCacheService.java"
+  ]
+- id: q20
+  question: "GeoJSON 업로드와 지역 적재는 어디서 처리해?"
+  answer_files: [
+    "backend/java/com/boram/look/api/controller/RegionController.java",
+    "backend/java/com/boram/look/service/region/GeoJsonRegionMapper.java",
+    "backend/java/com/boram/look/service/region/RegionService.java"
+  ]
