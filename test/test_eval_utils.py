@@ -1,6 +1,6 @@
 import pytest
 
-from eval.eval_utils import normalize_path, first_relevant_rank, recall_at_k, reciprocal_rank
+from eval.eval_utils import normalize_path, first_relevant_rank, recall_at_k, reciprocal_rank, summarize_metrics
 
 
 def test_success_normalize_path():
@@ -120,3 +120,40 @@ def test_reciprocal_rank_negative_raises():
 def test_reciprocal_rank_perfect():
     rr = reciprocal_rank(1)
     assert rr == 1
+
+
+# 평균 계산이 정확한가? (예: [0.5, 1.0] → 0.75)
+# dict 키 이름이 정확히 mean_recall_at_k, mrr인가?
+# 단일 row도 제대로 동작하나?
+def test_summarize_metrics_multiple_rows():
+    test_rows = [
+        {
+            "recall_at_k": 0.5,
+            "reciprocal_rank": 1
+        },
+        {
+            "recall_at_k": 1.0,
+            "reciprocal_rank": 0.5
+        }
+    ]
+    result_dict = summarize_metrics(test_rows)
+    assert result_dict["mean_recall_at_k"] == pytest.approx(0.75)
+    assert result_dict["mrr"] == pytest.approx(0.75)
+
+
+def test_summarize_metrics_single_row():
+    test_rows = [
+        {
+            "recall_at_k": 0.5,
+            "reciprocal_rank": 1
+        },
+    ]
+    result_dict = summarize_metrics(test_rows)
+    assert result_dict["mean_recall_at_k"] == pytest.approx(0.5)
+    assert result_dict["mrr"] == pytest.approx(1)
+
+
+def test_summarize_metrics_empty_row():
+    expected_errors: tuple[type[Exception], ...] = (ZeroDivisionError, ValueError)
+    with pytest.raises(expected_errors):
+        summarize_metrics([])

@@ -50,5 +50,29 @@ def reciprocal_rank(rank: int | None) -> float:
     return 1 / rank
 
 
-def summarize_metrics(rows: list[dict], k: int) -> dict:
-    return None
+"""
+{
+  "id": "q01",
+  "question": "...",
+  "expected_paths": [...],
+  "actual_paths": [...],
+  "hit": True,
+  "first_relevant_rank": 2,
+  "recall_at_k": 0.5,        # ← 이미 계산됨
+  "reciprocal_rank": 0.5,    # ← 이미 계산됨
+}
+"""
+
+
+def summarize_metrics(rows: list[dict]) -> dict:
+    """
+    rows의 recall_at_k와 reciprocal_rank 평균을 계산.
+    호출측에서 len(rows) > 0를 보장해야 함. 빈 리스트는 ZeroDivisionError.
+    """
+    sum_recall_at_k = 0
+    sum_rr = 0
+    for row in rows:
+        sum_recall_at_k += row['recall_at_k']
+        sum_rr += row['reciprocal_rank']
+    result_dict = {"mean_recall_at_k": sum_recall_at_k / len(rows), "mrr": sum_rr / len(rows)}
+    return result_dict
