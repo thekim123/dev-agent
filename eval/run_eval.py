@@ -15,23 +15,37 @@ class GoldenCase(TypedDict):
     answer_files: list[str]
 
 
+def _validate_helper(index, item, seen_ids):
+    if not isinstance(item, dict):
+        raise ValueError(f"item at index {index}: top-level must be a dict")
+
+    for key in ("id", "answer_files"):
+        if key not in item:
+            raise ValueError(f"item at index {index}: missing key - {key}")
+
+    if not isinstance(item.get("answer_files"), list):
+        raise ValueError(f"item at index {index}: answer_files must be a list")
+
+
+    if len(item.get("answer_files")) == 0:
+        raise ValueError(f"item at index {index}: answer_files must not be empty")
+
+    if item["id"] in seen_ids:
+        raise ValueError(f"items have duplicate id: {item['id']}")
+
+
 def load_golden_set(path: Path) -> list[GoldenCase]:
     """
     YAML 골든셋을 읽어 검증된 케이스 리스트를 반환.
-
-    계약:
-    - 파일 없음 → FileNotFoundError (전파)
-    - YAML 파싱 실패 → yaml.YAMLError (전파)
-    - 최상위가 list가 아님 → ValueError
-    - 원소가 dict가 아님 → ValueError (인덱스 포함 메시지)
-    - id/question/answer_files 키 누락 → ValueError (인덱스 포함)
-    - answer_files가 list[str]이 아니거나 비어있음 → ValueError
-    - id 중복 → ValueError (중복된 id 포함 메시지)
-    - 빈 리스트([])는 허용 — "비었다"의 의미 해석은 호출측 책임
     """
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, list):
         raise ValueError("top-level must be a list")
+
+    seen_ids: set[str] = set()
+    for i, item in enumerate(data):
+        _validate_helper(i, item, seen_ids)
+        seen_ids.add(item["id"])
     return data
 
 
@@ -80,5 +94,6 @@ def evaluate_all(cases: list[dict], retriever: Retriever, top_k: int) -> tuple[l
 
 
 def main():
-    cases = load_golden_set(...)
+    path = Path('./golden_draft.yaml')
+    cases = load_golden_set(path)
     rows, summary = evaluate_all(cases, baseline_retriever, top_k=5)
