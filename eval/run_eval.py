@@ -26,7 +26,6 @@ def _validate_helper(index, item, seen_ids):
     if not isinstance(item.get("answer_files"), list):
         raise ValueError(f"item at index {index}: answer_files must be a list")
 
-
     if len(item.get("answer_files")) == 0:
         raise ValueError(f"item at index {index}: answer_files must not be empty")
 
@@ -83,13 +82,13 @@ def evaluate_one_case(case: dict, retriever: Retriever, top_k: int) -> dict:
         "actual_paths": actual,
         "hit": rank is not None,
         "first_relevant_rank": rank,
-        "recall_at_k": recall_at_k(expected=expected, actual_ranked=actual, k=top_k),
+        "recall_at_k": recall_at_k(expected=expected, ranked_actual=actual, k=top_k),
         "reciprocal_rank": reciprocal_rank(rank),
     }
 
 
 # 전체 평가 함수
-def evaluate_all(cases: list[dict], retriever: Retriever, top_k: int) -> tuple[list[dict], dict]:
+def evaluate_all(cases: list[GoldenCase], retriever: Retriever, top_k: int) -> tuple[list[dict], dict]:
     ...
 
 

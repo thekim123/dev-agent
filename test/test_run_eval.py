@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from eval.run_eval import load_golden_set
+from eval.run_eval import load_golden_set, evaluate_one_case
 
 patch("eval.run_eval.yaml.safe_load")
 
@@ -47,8 +47,10 @@ def test_load_golden_set_file_not_found(monkeypatch):
 def test_load_golden_set_yaml_parsing_error(monkeypatch):
     from yaml import YAMLError
     monkeypatch.setattr(Path, "read_text", lambda self, *args, **kwargs: "unused")
+
     def fake_safe_load(self, *args, **kwargs):
         raise YAMLError(f"no yaml file: {self}")
+
     monkeypatch.setattr("eval.run_eval.yaml.safe_load", fake_safe_load)
 
     with pytest.raises(YAMLError):
@@ -124,3 +126,49 @@ def test_load_golden_set_answer_files_not_list(monkeypatch):
     monkeypatch.setattr("eval.run_eval.yaml.safe_load", lambda s: fake_data)
     with pytest.raises(ValueError, match=r"item at index 0: answer_files must be a list"):
         load_golden_set(Path("dummy.json"))
+
+
+def test_evaluate_one_case_hit():
+    # 1. 입력 준비
+    case = {
+        "id": "Q1",
+        "question": "UserService는 어디에 있나요?",
+        "answer_files": ["backend/src/UserService.java"],
+    }
+
+    # fake retriever: 2번째에 정답이 있음
+    def fake_retriever(question, top_k):
+        return ["backend/src/Main.java", "backend/src/UserService.java", "backend/src/Util.java"]
+
+    # 2. 실행
+    row = evaluate_one_case(case, fake_retriever, top_k=5)
+    assert row["id"] == "Q1"
+    assert row["question"] == "UserService는 어디에 있나요?"
+    assert row["expected_paths"] == ["backend/src/UserService.java"]
+    assert row["actual_paths"] == ["backend/src/Main.java", "backend/src/UserService.java", "backend/src/Util.java"]
+    assert row["hit"] is True
+    assert row["first_relevant_rank"] == 2
+    assert row["recall_at_k"] == pytest.approx(1.0)
+    assert row["reciprocal_rank"] == pytest.approx(0.5)
+
+
+def test_evaluate_one_case_no_hit():
+    case = {
+        "id": "Q1",
+        "question": "UserService는 어디에 있나요?",
+        "answer_files": ["backend/src/UserService.java"],
+    }
+
+    # fake retriever: 정답이 없음
+    def fake_retriever(question, top_k):
+        return ["backend/src/Main.java", "backend/src/Util.java"]
+
+    row = evaluate_one_case(case, fake_retriever, top_k=5)
+    assert row["id"] == "Q1"
+    assert row["question"] == "UserService는 어디에 있나요?"
+    assert row["expected_paths"] == ["backend/src/UserService.java"]
+    assert row["actual_paths"] == ["backend/src/Main.java", "backend/src/Util.java"]
+    assert row["hit"] is False
+    assert row["first_relevant_rank"] is None
+    assert row["recall_at_k"] == pytest.approx(0.0)
+    assert row["reciprocal_rank"] == pytest.approx(0.0)
