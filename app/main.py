@@ -1,20 +1,31 @@
 from __future__ import annotations
+
+import uuid
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 
 from app.agent.dto import AgentResponse, AgentRequest
 from app.agent.service import AgentService
 from app.llm.factory import create_embedder, create_llm_client
 from app.repository.factory import create_chunk_repository
+from app.storage.factory import create_image_storage
 
 if TYPE_CHECKING:
     from app.llm.embedder import Embedder
 
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10MB
+
 load_dotenv()
 app = FastAPI()
+
+
+@lru_cache
+def get_image_storage():
+    return create_image_storage()
 
 
 @lru_cache
@@ -64,3 +75,21 @@ async def agent(
         raise HTTPException(status_code=400, detail="question is required")
     api_response = service.answer(question)
     return api_response
+
+
+@app.post("/images", summary="이미지 업로드 -> object key 반환")
+async def upload_image(
+        file: UploadFile = File(...),
+        storage=Depends(get_image_storage),
+):
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=415, detail=f"unsupported file type: {file.content_type}")
+
+    data = await file.read()
+    if len(data) > MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="file too large")
+
+    ext = file.content_type.split("/")[1]
+    key = f"{uuid.uuid4().hex}.{ext}"
+    storage.put(key, data, content_type=file.content_type)
+    return {"key": key}

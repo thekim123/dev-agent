@@ -7,6 +7,7 @@ from app.repository.base import ChunkSearchHit
 
 class AgentRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000)
+    image_keys: list[str] | None = None
 
 
 class Source(BaseModel):
