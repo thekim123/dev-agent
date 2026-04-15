@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from eval.run_eval import load_golden_set, evaluate_one_case
+from eval.run_eval import load_golden_set, evaluate_one_case, GoldenCase, evaluate_all
 
 patch("eval.run_eval.yaml.safe_load")
 
@@ -153,11 +153,11 @@ def test_evaluate_one_case_hit():
 
 
 def test_evaluate_one_case_no_hit():
-    case = {
-        "id": "Q1",
-        "question": "UserService는 어디에 있나요?",
-        "answer_files": ["backend/src/UserService.java"],
-    }
+    case = GoldenCase(
+        id="Q1",
+        question="UserService는 어디에 있나요?",
+        answer_files=["backend/src/UserService.java"],
+    )
 
     # fake retriever: 정답이 없음
     def fake_retriever(question, top_k):
@@ -172,3 +172,45 @@ def test_evaluate_one_case_no_hit():
     assert row["first_relevant_rank"] is None
     assert row["recall_at_k"] == pytest.approx(0.0)
     assert row["reciprocal_rank"] == pytest.approx(0.0)
+
+
+def test_evaluate_all_zero_list():
+    fake_data = []
+
+    # fake retriever: 정답이 없음
+    def fake_retriever(question, top_k):
+        return ["backend/src/Main.java", "backend/src/Util.java"]
+
+    top_k = 5
+    with pytest.raises(ValueError, match=r"cases must not be empty"):
+        evaluate_all(cases=fake_data, retriever=fake_retriever, top_k=top_k)
+
+
+def test_evaluate_all_success():
+    cases = [
+        GoldenCase(
+            id="Q1",
+            question="UserService는 어디에 있나요?",
+            answer_files=["backend/src/UserService.java"],
+        ),
+
+        GoldenCase(
+            id="Q2",
+            question="UserService는 어디에 있나요?",
+            answer_files=["backend/src/UserService.java"],
+        ),
+    ]
+
+    def fake_retriever(question, top_k):
+        return ["backend/src/Main.java", "backend/src/Util.java", "backend/src/UserService.java"]
+
+    rows, summary = evaluate_all(cases=cases, retriever=fake_retriever, top_k=5)
+
+    # rows 검증
+    assert len(rows) == 2
+    assert rows[0]["id"] == "Q1"
+    assert rows[1]["id"] == "Q2"
+
+    # summary 검증 - 키가 존재하고 타입이 맞는지
+    assert "mean_recall_at_k" in summary
+    assert "mrr" in summary
