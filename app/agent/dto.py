@@ -17,9 +17,10 @@ class Source(BaseModel):
 
 
 class AgentResponse(BaseModel):
-    used_tool: Literal["retrieve_docs", "search_repo", "direct"]
-    reason: str
+    used_tool: Literal["retrieve_docs", "search_repo", "direct", "blur"]
     sources: List[Source]
+    result_image_keys: list[str] | None = None
+    reason: str
     answer: str
 
 

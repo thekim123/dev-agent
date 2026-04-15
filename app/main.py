@@ -73,7 +73,7 @@ async def agent(
     question = req.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="question is required")
-    api_response = service.answer(question)
+    api_response = service.answer(question, req.image_keys)
     return api_response
 
 

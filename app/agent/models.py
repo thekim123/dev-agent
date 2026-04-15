@@ -4,7 +4,7 @@ from typing import Literal
 
 @dataclass(frozen=True)
 class RouteDecision:
-    tool: Literal["direct", "search_repo", "retrieve_docs"]
+    tool: Literal["direct", "search_repo", "retrieve_docs", "blur"]
     routed_question: str
     reason: str
     is_final: bool

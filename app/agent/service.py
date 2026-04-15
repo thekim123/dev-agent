@@ -6,6 +6,7 @@ from app.agent.dto import AgentResponse, Source, BedrockResponse
 from app.agent.models import RouteDecision
 from app.repository.base import ChunkRepository
 from app.repository.models import ChunkSearchHit
+from app.vision.client import blur
 
 STOPWORDS = {"어디", "설명", "해줘", "해주세요", "무엇", "뭐", "찾아줘", "찾아", "관련", "있는", "인가", "이거"}
 MAX_ITERATIONS = 10
@@ -85,7 +86,8 @@ def _build_confirm_prompt(
             direct: 현재 가지고 있는 프로젝트에 대한 질문이 아닌 경우
             search_repo: 현재 가지고 있는 프로젝트 중에서 코드의 위치를 파악하는 도구
             retrieve_docs: 현재 가지고 있는 프로젝트에 대해서 질의를 하고자 하는경우
-            
+            blur: 입력된 사진 경로에 대해 모자이크 처리를 원하는 경우
+
             질문: {question}
         """
 
@@ -108,6 +110,7 @@ def _build_confirm_prompt(
             direct: 현재 가지고 있는 프로젝트에 대한 질문이 아닌 경우
             search_repo: 현재 가지고 있는 프로젝트 중에서 코드의 위치를 파악하는 도구
             retrieve_docs: 현재 가지고 있는 프로젝트에 대해서 질의를 하고자 하는경우
+            blur: 입력된 사진 경로에 대해 모자이크 처리를 원하는 경우
     """
     return confirm_prompt
 
@@ -133,7 +136,11 @@ class AgentService:
         self.embed = embed
         self.query_to_llm = query_to_llm
 
-    def answer(self, question: str) -> AgentResponse:
+    def answer(
+            self,
+            question: str,
+            image_keys: list[str] | None = None
+    ) -> AgentResponse:
         agent_response = None
         route_decision = None
 
@@ -148,12 +155,16 @@ class AgentService:
                     sources=[],
                     answer=route_decision.direct_answer,
                 )
-            agent_response = self.execute_tools(route_decision)
+            agent_response = self.execute_tools(route_decision, image_keys)
 
         # 일단은 마지막 답변 반환
         return agent_response
 
-    def execute_tools(self, route_decision: RouteDecision) -> AgentResponse:
+    def execute_tools(
+            self,
+            route_decision: RouteDecision,
+            image_keys: list[str] | None
+    ) -> AgentResponse:
         if route_decision.tool == "search_repo":
             terms = _extract_terms(route_decision.routed_question)
             query_results = self.repository.search_by_term(terms)
@@ -163,6 +174,26 @@ class AgentService:
                 reason=route_decision.reason,
                 sources=sources,
                 answer=_build_answer(query_results),
+            )
+
+        result = []
+        if route_decision.tool == "blur":
+            if not image_keys:
+                return AgentResponse(
+                    used_tool=route_decision.tool,
+                    reason=route_decision.reason,
+                    sources=[],
+                    answer="블러하려면 이미지를 첨부해주세요.",
+                )
+
+            for key in image_keys:
+                result.append(blur(image_key=key)["result_key"])
+            return AgentResponse(
+                used_tool=route_decision.tool,
+                reason=route_decision.reason,
+                result_image_keys=result,
+                sources=[],
+                answer=f"블러 완료.",
             )
 
         bedrock_response = self.retrieve_docs(route_decision.routed_question)

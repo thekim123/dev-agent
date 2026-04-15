@@ -1,0 +1,25 @@
+
+  # Python
+  __pycache__/
+  *.py[cod]
+  *$py.class
+
+  # Virtual env
+  .venv/
+
+  # Env / secrets
+  .env
+  .env.*
+  !.env.example
+
+  # IDE
+  .idea/
+  .vscode/
+
+  # Testing
+  .pytest_cache/
+  .pytest_tmp/
+  .coverage
+
+  # Local data
+  vector_store.json
