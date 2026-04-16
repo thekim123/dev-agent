@@ -1,8 +1,7 @@
 import httpx
 
-from app.config import VISION_SERVER_URL
+from app.config import settings
 
-_base_url = VISION_SERVER_URL
 timeout = 300
 
 
@@ -23,9 +22,7 @@ def blur(
         "blur_sigma": blur_sigma,
     }
 
-    with httpx.Client(base_url=_base_url, timeout=timeout) as client:
+    with httpx.Client(base_url=settings.vision_server_url, timeout=timeout) as client:
         response = client.post("/v1/blur", json=data)
         response.raise_for_status()
-
-    print(response.json())
     return response.json()

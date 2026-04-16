@@ -120,7 +120,7 @@ def _json_to_route_decision(routed_json: dict) -> RouteDecision:
         tool=routed_json["tool"],
         routed_question=routed_json["routed_question"],
         reason=routed_json["reason"],
-        direct_answer=routed_json["direct_answer"],
+        direct_answer=routed_json.get("direct_answer", ""),
         is_final=routed_json["is_final"]
     )
 

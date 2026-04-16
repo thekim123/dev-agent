@@ -1,4 +1,4 @@
-from app.config import LLM_REGION_NAME, LLM_QUERY_MODEL_ID
+from app.config import settings
 
 
 def create_embedder():
@@ -10,9 +10,12 @@ def create_llm_client():
     from app.llm.llm_client import LLMClient
     import boto3
 
-    region_name = LLM_REGION_NAME
+    region_name = settings.bedrock_region_name
     client = boto3.client(
         service_name="bedrock-runtime",
         region_name=region_name,
     )
-    return LLMClient(client.invoke_model, model_id=LLM_QUERY_MODEL_ID)
+    return LLMClient(
+        invoke_model=client.invoke_model,
+        model_id=settings.bedrock_query_model_id
+    )
