@@ -1,25 +1,25 @@
 
-  # Python
-  __pycache__/
-  *.py[cod]
-  *$py.class
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
 
-  # Virtual env
-  .venv/
+# Virtual env
+.venv/
 
-  # Env / secrets
-  .env
-  .env.*
-  !.env.example
+# Env / secrets
+.env
+.env.*
+!.env.example
 
-  # IDE
-  .idea/
-  .vscode/
+# IDE
+.idea/
+.vscode/
 
-  # Testing
-  .pytest_cache/
-  .pytest_tmp/
-  .coverage
+# Testing
+.pytest_cache/
+.pytest_tmp/
+.coverage
 
-  # Local data
-  vector_store.json
+# Local data
+vector_store.json
