@@ -1,16 +1,18 @@
+from app.config import CHUNK_REPOSITORY_BACKEND
+
+
 def create_chunk_repository():
     import os
-    backend = os.getenv("CHUNK_REPOSITORY_BACKEND", "json").lower()
 
-    if backend == "json":
+    if CHUNK_REPOSITORY_BACKEND == "json":
         from app.repository.json_chunk_repository import JsonChunkRepository
         return JsonChunkRepository()
 
-    if backend == "opensearch":
+    if CHUNK_REPOSITORY_BACKEND == "opensearch":
         from app.repository.opensearch_chunk_repository import OpenSearchChunkRepository
         return OpenSearchChunkRepository(
             host=os.getenv("OPENSEARCH_HOST", "http://localhost:9200"),
             index_name=os.getenv("OPENSEARCH_INDEX", "code_chunks"),
         )
 
-    raise ValueError(f"backend {backend} not supported")
+    raise ValueError(f"backend {CHUNK_REPOSITORY_BACKEND} not supported")
