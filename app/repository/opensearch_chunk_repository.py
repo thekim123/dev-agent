@@ -78,25 +78,25 @@ def _parse_hit(hit: dict) -> ChunkSearchHit:
 class OpenSearchChunkRepository(ChunkRepository):
     def __init__(self, host, index_name):
         self.host = host.rstrip("/")
-        self.client = httpx.Client(base_url=self.host, timeout=5.0)
+        self.client = httpx.AsyncClient(base_url=self.host, timeout=5.0)
         self.index_name = index_name
 
-    def __enter__(self):
+    async def __aenter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        self.close()
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await self.close()
 
-    def close(self):
-        self.client.close()
+    async def close(self):
+        await self.client.aclose()
 
-    def count(self) -> int:
-        count_response = (self.client.get(f"/{self.index_name}/_count"))
+    async def count(self) -> int:
+        count_response = (await self.client.get(f"/{self.index_name}/_count"))
         count_response.raise_for_status()
         return count_response.json()["count"]
 
-    def search_similar(self, query_embedding, top_k=3) -> list[ChunkSearchHit]:
-        response = self.client.post(
+    async def search_similar(self, query_embedding, top_k=3) -> list[ChunkSearchHit]:
+        response = await self.client.post(
             f"/{self.index_name}/_search",
             json=_build_knn_query(query_embedding, top_k),
         )
@@ -105,8 +105,8 @@ class OpenSearchChunkRepository(ChunkRepository):
         hits = payload["hits"]["hits"]
         return [_parse_hit(hit) for hit in hits]
 
-    def search_by_term(self, terms, top_k=5) -> list[ChunkSearchHit]:
-        response = self.client.post(
+    async def search_by_term(self, terms, top_k=5) -> list[ChunkSearchHit]:
+        response = await self.client.post(
             f"/{self.index_name}/_search",
             json=_build_term_query(terms, top_k),
         )

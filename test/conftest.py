@@ -5,7 +5,8 @@ from starlette.testclient import TestClient
 
 from app.repository.base import ChunkRepository
 from app.agent.service import AgentService
-from app.main import app, get_agent_service
+from app.main import app
+from app.deps import get_agent_service
 from app.repository.json_chunk_repository import JsonChunkRepository
 from app.repository.models import ChunkSearchHit
 from app.repository.opensearch_chunk_repository import OpenSearchChunkRepository
@@ -60,7 +61,7 @@ def opensearch_repo(vector_store_path):
 
 
 class FakeEmbedder:
-    def embed(self, text):
+    async def embed(self, text):
         return [1.0, 0.0]
 
 
@@ -69,7 +70,7 @@ class FakeLLMClient:
         self.call_count = 0
         self.answers = answers
 
-    def query_to_llm(self, prompt: str) -> str:
+    async def query_to_llm(self, prompt: str) -> str:
         result = self.answers[self.call_count]
         self.call_count += 1
         return result
@@ -118,17 +119,17 @@ class FakeRepository(ChunkRepository):
     def __init__(self, hits: list[ChunkSearchHit] = None):
         self.hits = hits or []
 
-    def search_similar(self, query_embedding, top_k=3) -> list[ChunkSearchHit]:
+    async def search_similar(self, query_embedding, top_k=3) -> list[ChunkSearchHit]:
         if len(self.hits) == 0:
             return []
         return self.hits
 
-    def search_by_term(self, terms, top_k=5) -> list[ChunkSearchHit]:
+    async def search_by_term(self, terms, top_k=5) -> list[ChunkSearchHit]:
         if len(self.hits) == 0:
             return []
         return self.hits
 
-    def count(self):
+    async def count(self):
         return 1
 
 
@@ -172,7 +173,6 @@ def client(fake_repository: FakeRepository):
         )
 
     app.dependency_overrides[get_agent_service] = override_get_agent_service
-
     with TestClient(app) as test_client:
         yield test_client
 

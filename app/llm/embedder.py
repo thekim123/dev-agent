@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import boto3
@@ -14,9 +15,10 @@ class Embedder:
         )
         self.embed_model_id = settings.bedrock_embedding_model_id
 
-    def embed(self, text: str) -> list[float]:
+    async def embed(self, text: str) -> list[float]:
         body = json.dumps({"inputText": text})
-        response = self.client.invoke_model(
+        response = await asyncio.to_thread(
+            self.client.invoke_model,
             modelId=self.embed_model_id,
             body=body
         )

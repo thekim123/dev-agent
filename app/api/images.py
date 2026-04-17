@@ -33,7 +33,7 @@ async def upload_image(
 
     ext = file.content_type.split("/")[1]
     key = f"{uuid.uuid4().hex}.{ext}"
-    storage.put(key, data, content_type=file.content_type)
+    await storage.put(key, data, content_type=file.content_type)
     return {"key": key}
 
 
@@ -43,7 +43,7 @@ async def get_image(
         storage=Depends(get_image_storage),
 ):
     try:
-        data = storage.get(key)
+        data = await storage.get(key)
     except Exception:
         raise HTTPException(status_code=404, detail="image not found")
 

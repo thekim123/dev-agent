@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 
@@ -6,7 +7,7 @@ class LLMClient:
         self.invoke_model = invoke_model
         self.model_id = model_id
 
-    def query_to_llm(self, prompt: str) -> str:
+    async def query_to_llm(self, prompt: str) -> str:
         body = {
             "messages": [
                 {
@@ -18,7 +19,8 @@ class LLMClient:
             ]
         }
 
-        response = self.invoke_model(
+        response = await asyncio.to_thread(
+            self.invoke_model,
             modelId=self.model_id,
             body=json.dumps(body)
         )

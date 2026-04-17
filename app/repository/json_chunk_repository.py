@@ -14,7 +14,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class JsonChunkRepository(ChunkRepository):
-    def count(self) -> int:
+    async def count(self) -> int:
         return len(self.chunks)
 
     def __init__(self, path: str = "vector_store.json"):
@@ -43,7 +43,7 @@ class JsonChunkRepository(ChunkRepository):
         b = np.array(b)
         return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
-    def search_similar(self, query_embedding: list[float], top_k=3) -> list[ChunkSearchHit]:
+    async def search_similar(self, query_embedding: list[float], top_k=3) -> list[ChunkSearchHit]:
         scored = []
         for chunk in self.chunks:
             score = self._cosine_similarity(query_embedding, chunk.embedding)
@@ -57,10 +57,10 @@ class JsonChunkRepository(ChunkRepository):
             ))
         return sorted(scored, key=lambda x: x.score, reverse=True)[:top_k]
 
-    def search_by_term(self, terms, top_k=5) -> list[ChunkSearchHit]:
+    async def search_by_term(self, terms, top_k=5) -> list[ChunkSearchHit]:
         results = []
         for chunk in self.chunks:
-            if chunk.source_path.endswith('.md') :
+            if chunk.source_path.endswith('.md'):
                 continue
             score = 0
             path = chunk.source_path.lower()

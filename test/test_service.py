@@ -3,8 +3,11 @@ import json
 from app.agent.service import AgentService
 from test.conftest import FakeEmbedder, FakeLLMClient, FakeRepository
 
+import pytest
 
-def test_answer_routes_repo_question(fake_repository):
+
+@pytest.mark.asyncio
+async def test_answer_routes_repo_question(fake_repository):
     answers = [
         json.dumps({
             'tool': 'search_repo',
@@ -29,14 +32,15 @@ def test_answer_routes_repo_question(fake_repository):
         repository=fake_repository
     )
 
-    result = service.answer("test_answer_routes_repo_question")
+    result = await service.answer("test_answer_routes_repo_question")
     assert result.used_tool == "search_repo"
     assert result.sources
     assert result.sources[0].path == "app/auth/token_service.py"
     assert "token refresh logic" in result.sources[0].snippet
 
 
-def test_answer_routes_direct_question():
+@pytest.mark.asyncio
+async def test_answer_routes_direct_question():
     answers = [
         json.dumps({
             'tool': 'direct',
@@ -52,14 +56,15 @@ def test_answer_routes_direct_question():
         query_to_llm=fake_llm_client.query_to_llm,
         repository=FakeRepository()
     )
-    result = service.answer("test_answer_routes_direct_question")
+    result = await service.answer("test_answer_routes_direct_question")
 
     assert result.used_tool == "direct"
     assert result.sources == []
     assert result.answer == '안녕하세요. 코드 위치 탐색과 문서 설명을 도와드릴 수 있습니다.'
 
 
-def test_answer_retrieve_no_docs():
+@pytest.mark.asyncio
+async def test_answer_retrieve_no_docs():
     answers = [
         json.dumps({
             'tool': 'retrieve_docs',
@@ -83,14 +88,15 @@ def test_answer_retrieve_no_docs():
         query_to_llm=fake_llm_client.query_to_llm,
         repository=FakeRepository()
     )
-    result = service.answer("retrieve_no_docs_test")
+    result = await service.answer("retrieve_no_docs_test")
     assert result.used_tool == "retrieve_docs"
     assert result.sources == []
     assert result.answer == '지금 가지고 있는 자료에서는 마땅한게 없네요.'
     assert fake_llm_client.call_count == 2
 
 
-def test_answer_filter_55_under_docs(fake_repository):
+@pytest.mark.asyncio
+async def test_answer_filter_55_under_docs(fake_repository):
     answers = [
                   json.dumps({
                       'tool': 'retrieve_docs',
@@ -108,14 +114,15 @@ def test_answer_filter_55_under_docs(fake_repository):
         query_to_llm=fake_llm_client.query_to_llm,
         repository=fake_repository
     )
-    result = service.answer("retrieve_no_docs_test")
+    result = await service.answer("retrieve_no_docs_test")
     assert result.used_tool == "retrieve_docs"
     assert result.sources[0].score == 0.9
     assert result.answer == '지금 가지고 있는 자료에서는 마땅한게 없네요.'
     assert fake_llm_client.call_count == 3
 
 
-def test_answer_routes_doc_question(fake_repository):
+@pytest.mark.asyncio
+async def test_answer_routes_doc_question(fake_repository):
     answers = [
         json.dumps({
             'tool': 'retrieve_docs',
@@ -141,7 +148,7 @@ def test_answer_routes_doc_question(fake_repository):
         repository=fake_repository
     )
 
-    result = service.answer("test_answer_routes_doc_question")
+    result = await service.answer("test_answer_routes_doc_question")
 
     assert result.used_tool == "retrieve_docs"
     assert result.sources[0].path == "app/auth/token_service.py"
@@ -149,7 +156,8 @@ def test_answer_routes_doc_question(fake_repository):
     assert fake_llm_client.call_count == 3
 
 
-def test_retrieve_docs_remove_duplicate(fake_repository):
+@pytest.mark.asyncio
+async def test_retrieve_docs_remove_duplicate(fake_repository):
     answers = [
         json.dumps({
             'tool': 'retrieve_docs',
@@ -174,7 +182,7 @@ def test_retrieve_docs_remove_duplicate(fake_repository):
         query_to_llm=fake_llm_client.query_to_llm,
         repository=fake_repository
     )
-    answer = service.answer("retrieve_docs_remove_duplicate_test")
+    answer = await service.answer("retrieve_docs_remove_duplicate_test")
     assert answer.used_tool == "retrieve_docs"
     assert len(answer.sources) == 1
     assert answer.sources[0].path == "app/auth/token_service.py"
@@ -182,7 +190,8 @@ def test_retrieve_docs_remove_duplicate(fake_repository):
     assert fake_llm_client.call_count == 3
 
 
-def test_answer_loops_max(fake_repository):
+@pytest.mark.asyncio
+async def test_answer_loops_max(fake_repository):
     answers = [
                   json.dumps({
                       'tool': 'retrieve_docs',
@@ -199,7 +208,7 @@ def test_answer_loops_max(fake_repository):
         query_to_llm=fake_llm_client.query_to_llm,
         repository=fake_repository
     )
-    answer = service.answer("retrieve_docs_remove_duplicate_test")
+    answer = await service.answer("retrieve_docs_remove_duplicate_test")
     assert answer.used_tool == "retrieve_docs"
     assert len(answer.sources) == 1
     assert answer.sources[0].path == "app/auth/token_service.py"

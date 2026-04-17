@@ -33,6 +33,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.llm_client = llm_client
     app.state.agent_service = agent_service
     yield
+    if hasattr(chunk_repository, "close"):
+        await chunk_repository.close()
 
 
 app = FastAPI(lifespan=lifespan)

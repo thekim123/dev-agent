@@ -6,11 +6,11 @@ from app.repository.models import ChunkSearchHit
 
 class ChunkRepository(ABC):
     @abstractmethod
-    def count(self) -> int:
+    async def count(self) -> int:
         ...
 
     @abstractmethod
-    def search_similar(
+    async def search_similar(
             self,
             query_embedding: Sequence[float],
             top_k: int = 3,
@@ -18,7 +18,7 @@ class ChunkRepository(ABC):
         ...
 
     @abstractmethod
-    def search_by_term(
+    async def search_by_term(
             self,
             terms: list[str],
             top_k: int = 5,

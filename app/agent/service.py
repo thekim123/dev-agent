@@ -1,6 +1,6 @@
 import json
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Awaitable
 
 from app.agent.dto import AgentResponse, Source, BedrockResponse
 from app.agent.models import RouteDecision
@@ -129,14 +129,14 @@ class AgentService:
     def __init__(
             self,
             repository: ChunkRepository,
-            embed: Callable[[str], list[float]],
-            query_to_llm: Callable[[str], str]
+            embed: Callable[[str], Awaitable[list[float]]],
+            query_to_llm: Callable[[str], Awaitable[str]]
     ):
         self.repository = repository
         self.embed = embed
         self.query_to_llm = query_to_llm
 
-    def answer(
+    async def answer(
             self,
             question: str,
             image_keys: list[str] | None = None
@@ -145,7 +145,7 @@ class AgentService:
         route_decision = None
 
         for _ in range(MAX_ITERATIONS):
-            route_decision = self._route(question, agent_response, route_decision)
+            route_decision = await self._route(question, agent_response, route_decision)
             if route_decision.is_final and agent_response is not None:
                 return agent_response
             if route_decision.tool == "direct":
@@ -155,19 +155,19 @@ class AgentService:
                     sources=[],
                     answer=route_decision.direct_answer,
                 )
-            agent_response = self.execute_tools(route_decision, image_keys)
+            agent_response = await self.execute_tools(route_decision, image_keys)
 
         # 일단은 마지막 답변 반환
         return agent_response
 
-    def execute_tools(
+    async def execute_tools(
             self,
             route_decision: RouteDecision,
             image_keys: list[str] | None
     ) -> AgentResponse:
         if route_decision.tool == "search_repo":
             terms = _extract_terms(route_decision.routed_question)
-            query_results = self.repository.search_by_term(terms)
+            query_results = await self.repository.search_by_term(terms)
             sources = [_to_source(result) for result in query_results]
             return AgentResponse(
                 used_tool=route_decision.tool,
@@ -187,7 +187,8 @@ class AgentService:
                 )
 
             for key in image_keys:
-                result.append(blur(image_key=key)["result_key"])
+                blur_result = await blur(image_key=key)
+                result.append(blur_result["result_key"])
             return AgentResponse(
                 used_tool=route_decision.tool,
                 reason=route_decision.reason,
@@ -196,7 +197,7 @@ class AgentService:
                 answer=f"블러 완료.",
             )
 
-        bedrock_response = self.retrieve_docs(route_decision.routed_question)
+        bedrock_response = await self.retrieve_docs(route_decision.routed_question)
         if not bedrock_response.chunks:
             return AgentResponse(
                 used_tool=route_decision.tool,
@@ -222,20 +223,20 @@ class AgentService:
         )
         return api_response
 
-    def _route(
+    async def _route(
             self,
             question: str,
             agent_response: AgentResponse | None = None,
             route_decision: RouteDecision | None = None
     ) -> RouteDecision:
         prompt = _build_confirm_prompt(question, agent_response, route_decision)
-        query_result = self.query_to_llm(prompt)
+        query_result = await self.query_to_llm(prompt)
         routed = _extract_markdown(query_result)
         return _json_to_route_decision(json.loads(routed))
 
-    def retrieve_docs(self, question: str) -> BedrockResponse:
-        query_emb = self.embed(question)
-        search_list = self.repository.search_similar(query_emb)
+    async def retrieve_docs(self, question: str) -> BedrockResponse:
+        query_emb = await self.embed(question)
+        search_list = await self.repository.search_similar(query_emb)
         if not search_list:
             return BedrockResponse(
                 answer="검색된 자료가 없습니다.",
@@ -252,6 +253,6 @@ class AgentService:
         else:
             search_list = [item for item in search_list if item.score > 0.55]
             prompt = _build_retrieve_prompt(search_list, question)
-            query_result = self.query_to_llm(prompt)
+            query_result = await self.query_to_llm(prompt)
             response = BedrockResponse(answer=query_result, chunks=search_list)
             return response

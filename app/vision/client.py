@@ -5,7 +5,7 @@ from app.config import settings
 timeout = 300
 
 
-def blur(
+async def blur(
         image_key,
         conf=0.25,
         iou=0.45,
@@ -22,7 +22,7 @@ def blur(
         "blur_sigma": blur_sigma,
     }
 
-    with httpx.Client(base_url=settings.vision_server_url, timeout=timeout) as client:
-        response = client.post("/v1/blur", json=data)
+    async with httpx.AsyncClient(base_url=settings.vision_server_url, timeout=timeout) as client:
+        response = await client.post("/v1/blur", json=data)
         response.raise_for_status()
     return response.json()

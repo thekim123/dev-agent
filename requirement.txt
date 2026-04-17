@@ -9,3 +9,4 @@ boto3
 numpy
 pytest
 httpx
+pytest-asyncio

@@ -1,3 +1,5 @@
+import asyncio
+
 from app.config import settings
 import boto3, traceback
 from botocore.client import Config
@@ -23,12 +25,22 @@ class MinioClient:
         print(self._s3.meta.endpoint_url)
         self._s3.head_bucket(Bucket=self.bucket)
 
-    def put(self, key: str, data: bytes, content_type: str):
-        print(self.bucket, key)
-        self._s3.put_object(Bucket=self.bucket, Key=key, Body=data, ContentType=content_type)
+    async def put(self, key: str, data: bytes, content_type: str):
+        await asyncio.to_thread(
+            self._s3.put_object,
+            Bucket=self.bucket,
+            Key=key,
+            Body=data,
+            ContentType=content_type
+        )
 
-    def get(self, key: str) -> bytes:
-        return self._s3.get_object(Bucket=self.bucket, Key=key)["Body"].read()
+    async def get(self, key: str) -> bytes:
+        response = await asyncio.to_thread(
+            self._s3.get_object,
+            Bucket=self.bucket,
+            Key=key
+        )
+        return response["Body"].read()
 
 #
 # if __name__ == "__main__":
